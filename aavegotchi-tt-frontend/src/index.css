@@ -170,3 +170,12 @@ input {
   margin: 50px auto 10px auto;
   width: fit-content;
 }
+
+.owned-modal {
+  position: absolute;
+  z-index: 1000;
+  top: 20%;
+  left: 15%;
+  padding: 100px;
+  background: black;
+}

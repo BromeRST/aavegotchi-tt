@@ -28,6 +28,10 @@ function App() {
   const [playerIdsToSvgs, setPlayerIdsToSvgs] = useState([]);
   const [player1Gotchis, setPlayer1Gotchis] = useState([]);
   const [player2Gotchis, setPlayer2Gotchis] = useState([]);
+  const [player1Params, setPlayer1Params] = useState([]);
+  const [player2Params, setPlayer2Params] = useState([]);
+  const [playerAllGotchiParams, setPlayerAllGotchiParams] = useState([]);
+  const [checkOwnedAavegotchi, setCheckOwnedAavegotchi] = useState(false);
 
 
   const checkIfWalletIsConnected = async () => {
@@ -98,7 +102,9 @@ function App() {
     const gotchiIds = await aavegotchiContract.tokenIdsOfOwner(currentAccount);
     for (let i = 0; i < gotchiIds.length; i ++) {
       let svg = await aavegotchiContract.getAavegotchiSvg(gotchiIds[i]);
-      setPlayerIdsToSvgs(previousIds => [...previousIds, svg]);
+      setPlayerIdsToSvgs(previousIds => [...previousIds,{tokenId: gotchiIds[i], svg: svg}]);
+      const gotchiParams = await checkGotchiParam(gotchiIds[i]);
+      setPlayerAllGotchiParams(prevPar => [...prevPar, gotchiParams]);
     }
   }
 
@@ -107,6 +113,8 @@ function App() {
       for (let i = 0; i < player1Ids.length; i ++) {
         let svg = await aavegotchiContract.getAavegotchiSvg(player1Ids[i]);
         setPlayer1Gotchis(prevSvg => [...prevSvg, {tokenId: player1Ids[i], svg: svg}]);
+        const gotchiParams = await checkGotchiParam(player1Ids[i]);
+        setPlayer1Params(prevPar => [...prevPar, gotchiParams]);
       }
   }
 
@@ -115,6 +123,8 @@ function App() {
     for (let i = 0; i < player2Ids.length; i ++) {
       let svg = await aavegotchiContract.getAavegotchiSvg(player2Ids[i]);
       setPlayer2Gotchis(prevSvg => [...prevSvg, {tokenId: player2Ids[i], svg: svg}]);
+      const gotchiParams = await checkGotchiParam(player2Ids[i]);
+      setPlayer2Params(prevPar => [...prevPar, gotchiParams]);
     }
 }
 
@@ -141,6 +151,10 @@ function App() {
 
   const approve = async () => {
     await daiContract.approve(DIAMOND_FORKED_MAINNET_CONTRACT, ethers.utils.parseUnits("100000000000000000000000000", "ether"));
+  }
+
+  const toggleCheckOwner = () => {
+    setCheckOwnedAavegotchi(!checkOwnedAavegotchi);
   }
 
   const handleMatchId = (e) => {
@@ -217,6 +231,7 @@ function App() {
     <div>
       <div className="nav">
         <p className="app-name">AAVEGOTCHI TT</p>
+        <button onClick={toggleCheckOwner}>check your own aavegotchis</button>
         <ConnectButton 
           connected={connected}
           setConnected={setConnected}
@@ -232,8 +247,21 @@ function App() {
               let blob = new Blob([gotchi.svg], {type: 'image/svg+xml'});
               let url = URL.createObjectURL(blob);
               return (
-              <div key={i}>
-                <p onClick={() => {setTokenId(gotchi.tokenId)}} style={{backgroundImage: `url(${url})`, backgroundColor: "blue", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px", /* padding: "20px 10px" */}} />
+              <div 
+                key={i} 
+                onClick={() => {setTokenId(gotchi.tokenId)}}
+                style={{backgroundImage: `url(${url})`, backgroundColor: "blue", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", width: "200px", height: "200px", margin: "15px"}}>
+                  {
+                    player1Params.length > 4 && 
+                    <div className="param-container">
+                      <p className="up">{player1Params[i][0]}</p>
+                      <div className="left-right">
+                          <p className="left">{player1Params[i][3]}</p>
+                          <p className="right">{player1Params[i][1]}</p>
+                      </div>
+                      <p className="down">{player1Params[i][2]}</p>
+                    </div>
+                  }
               </div>
             )})}
           </div>
@@ -269,18 +297,51 @@ function App() {
               let blob = new Blob([gotchi.svg], {type: 'image/svg+xml'});
               let url = URL.createObjectURL(blob);
               return (
-              <div key={i}>
-                <p onClick={() => {setTokenId(gotchi.tokenId)}} style={{backgroundImage: `url(${url})`, backgroundColor: "red", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px", /* padding: "20px 10px" */}} />
+              <div
+                key={i}
+                onClick={() => {setTokenId(gotchi.tokenId)}} 
+                style={{backgroundImage: `url(${url})`, backgroundColor: "red", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", width: "200px", height: "200px", margin: "15px" }}>
+                  {
+                    player2Params.length > 4 && 
+                    <div className="param-container">
+                      <p className="up">{player2Params[i][0]}</p>
+                      <div className="left-right">
+                          <p className="left">{player2Params[i][3]}</p>
+                          <p className="right">{player2Params[i][1]}</p>
+                      </div>
+                      <p className="down">{player2Params[i][2]}</p>
+                    </div>
+                  }
               </div>
             )})}
           </div>
         </div>
       </div>
-      {playerIdsToSvgs.map((x, i) => {
-        let blob = new Blob([x], {type: 'image/svg+xml'});
-        let url = URL.createObjectURL(blob);
-        return <img key={i} src={url} style={{witdh: "200px", height: "200px"}}/>      
-      })}
+      {checkOwnedAavegotchi && 
+      <div className="owned-modal">
+        {playerIdsToSvgs.map((x, i) => {
+          let blob = new Blob([x.svg], {type: 'image/svg+xml'});
+          let url = URL.createObjectURL(blob);
+          return (
+            <div 
+              key={i} 
+              style={{display: "inline-block", backgroundImage: `url(${url})`, backgroundSize: "cover", backgroundRepeat: "no-repeat", width: "200px", margin: "15px"}}>
+                {
+                  playerAllGotchiParams.length > 4 && 
+                  <div className="param-container">
+                    <p className="up">{playerAllGotchiParams[i][0]}</p>
+                    <div className="left-right">
+                        <p className="left">{playerAllGotchiParams[i][3]}</p>
+                        <p className="right">{playerAllGotchiParams[i][1]}</p>
+                    </div>
+                    <p className="down">{playerAllGotchiParams[i][2]}</p>
+                  </div>
+                }
+            </div>
+          )      
+        })}
+      </div>
+      }
     </div>
   );
 }
