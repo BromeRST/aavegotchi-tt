@@ -1,6 +1,6 @@
 import Tile from "./Tile"
 
-export default function Grid({gridMap, checkGotchiParam, match, setXToPlay, setYToPlay}) {
+export default function Grid({gridMap, checkGotchiParam, match, setXToPlay, setYToPlay, aavegotchiContract}) {
 
     return (
         <div className="grid-container">
@@ -16,6 +16,7 @@ export default function Grid({gridMap, checkGotchiParam, match, setXToPlay, setY
                     match={match}
                     setXToPlay={setXToPlay}
                     setYToPlay={setYToPlay}
+                    aavegotchiContract={aavegotchiContract}
                 />
             ))}
 

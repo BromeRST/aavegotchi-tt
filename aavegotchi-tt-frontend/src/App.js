@@ -5,18 +5,8 @@ import abi from "./utils/abi.json";
 import aavegotchiABI from "./utils/aavegotchiABI"
 import ierc20ABI from "./utils/ierc20ABI"
 import Grid from "./components/Grid";
-import Gotchi22133 from "./svg/Gotchi22133.svg"
-import Gotchi172 from "./svg/Gotchi172.svg"
-import Gotchi1454 from "./svg/Gotchi1454.svg"
-import Gotchi2195 from "./svg/Gotchi2195.svg"
-import Gotchi3052 from "./svg/Gotchi3052.svg"
-import Gotchi9358 from "./svg/Gotchi9358.svg"
-import Gotchi12409 from "./svg/Gotchi12409.svg"
-import Gotchi21424 from "./svg/Gotchi21424.svg"
-import Gotchi21508 from "./svg/Gotchi21508.svg"
-import Gotchi22128 from "./svg/Gotchi22128.svg"
 
-const DIAMOND_FORKED_MAINNET_CONTRACT = "0x7Ab5ae9512284fcdE1eB550BE8f9854B4E425702"
+const DIAMOND_FORKED_MAINNET_CONTRACT = "0xa00F03Ea2d0a6e4961CaAFcA61A78334049c1848"
 const AAVEGOTCHI_FORKED_CONTRACT = "0x86935F11C86623deC8a25696E1C19a8659CbF95d"
 const DAI_CONTRACT = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"
 
@@ -35,6 +25,10 @@ function App() {
   const [tokenId, setTokenId] = useState(null);
   const [xToPlay, setXToPlay] = useState(null);
   const [yToPlay, setYToPlay] = useState(null);
+  const [playerIdsToSvgs, setPlayerIdsToSvgs] = useState([]);
+  const [player1Gotchis, setPlayer1Gotchis] = useState([]);
+  const [player2Gotchis, setPlayer2Gotchis] = useState([]);
+
 
   const checkIfWalletIsConnected = async () => {
     const { ethereum } = window;
@@ -98,11 +92,31 @@ function App() {
     const gotchiToPlay = [22133, 1454, 21508, 22128, 2195]
     await mainContract.register(gotchiToPlay)
     let svg;
-/*     for (let i = 0; i < gotchiToPlay.length; i ++) {
-      svg = await aavegotchiContract.getAavegotchiSvg(gotchiToPlay[i])
-      console.log(svg);
-    } */
   }
+
+  const tokenIdsOfPlayer = async () => {
+    const gotchiIds = await aavegotchiContract.tokenIdsOfOwner(currentAccount);
+    for (let i = 0; i < gotchiIds.length; i ++) {
+      let svg = await aavegotchiContract.getAavegotchiSvg(gotchiIds[i]);
+      setPlayerIdsToSvgs(previousIds => [...previousIds, svg]);
+    }
+  }
+
+  const tokenSvgsOfPlayer1 = async () => {
+      const player1Ids = match.player1Gotchis;
+      for (let i = 0; i < player1Ids.length; i ++) {
+        let svg = await aavegotchiContract.getAavegotchiSvg(player1Ids[i]);
+        setPlayer1Gotchis(prevSvg => [...prevSvg, {tokenId: player1Ids[i], svg: svg}]);
+      }
+  }
+
+  const tokenSvgsOfPlayer2 = async () => {
+    const player2Ids = match.player2Gotchis;
+    for (let i = 0; i < player2Ids.length; i ++) {
+      let svg = await aavegotchiContract.getAavegotchiSvg(player2Ids[i]);
+      setPlayer2Gotchis(prevSvg => [...prevSvg, {tokenId: player2Ids[i], svg: svg}]);
+    }
+}
 
   const getGrid = async () => {
     const grid = await mainContract.getGrid(0); // to pass match id
@@ -116,7 +130,7 @@ function App() {
 
   const getMatch = async () => {
     const match = await mainContract.getMatch(0);
-    console.log("player2", match)
+    console.log("match", match)
     setMatch(match);
   }
 
@@ -133,29 +147,24 @@ function App() {
     setMatchId(Number(e.target.value));
   }
 
-  const handleTokenId = (e) => {
-    setTokenId(Number(e.target.value));
-  }
-
-  const handleX = (e) => {
-    setXToPlay(Number(e.target.value));
-  }
-
-  const handleY = (e) => {
-    setYToPlay(Number(e.target.value));
-  }
-
-  const handleSelectId = (id) => {
-    setTokenId(id);
-  }
+  useEffect(() => {
+    if(match) {
+      tokenSvgsOfPlayer1();
+    }
+  }, [aavegotchiContract])
 
   useEffect(() => {
     checkIfWalletIsConnected();
   }, []);
 
   useEffect(() => {
-    if(provider !== null) {
-      setSigner(provider.getSigner());
+    if (currentAccount) {
+      tokenIdsOfPlayer();
+    }
+  }, [aavegotchiContract])
+
+  useEffect(() => {
+    if(currentAccount !== null) {
 
       setMainContract(
         new ethers.Contract(
@@ -182,7 +191,13 @@ function App() {
       )
 
     }
-  }, [currentAccount, provider])
+  }, [currentAccount])
+
+  useEffect(() => {
+    if(provider !== null) {
+      setSigner(provider.getSigner());
+    }
+  }, [provider])
 
   useEffect(() => {
     if (mainContract) {
@@ -191,18 +206,12 @@ function App() {
     }
   }, [mainContract])
 
-/*   useEffect(() => {
-    if (match !== null) {
-      const p2Gotchis = match.player2Gotchis;
-      console.log(p2Gotchis)
-      set
- //     checkGotchiParam()
+  useEffect(() => {
+    if (match) {
+      tokenSvgsOfPlayer1();
+      tokenSvgsOfPlayer2();
     }
-  }, [match]) */
-
-/*   console.log("tok", tokenId)
-  console.log("x", xToPlay)
-  console.log("y", yToPlay) */
+  }, [match])
 
   return (
     <div>
@@ -219,22 +228,14 @@ function App() {
         <div>
           <p>PLAYER1 CARDS:</p>
           <div>
-            {match !== null && match.player1Gotchis.map((gotchi, i) => (
+            {match !== null && player1Gotchis.map((gotchi, i) => {
+              let blob = new Blob([gotchi.svg], {type: 'image/svg+xml'});
+              let url = URL.createObjectURL(blob);
+              return (
               <div key={i}>
-                <p style={
-                  parseInt(ethers.utils.formatUnits(gotchi, 0)) === 3052 ? 
-                  {backgroundImage: `url(${Gotchi3052})`, backgroundColor: "blue", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}:
-                  parseInt(ethers.utils.formatUnits(gotchi, 0)) === 21424 ? 
-                  {backgroundImage: `url(${Gotchi21424})`, backgroundColor: "blue", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}:
-                  parseInt(ethers.utils.formatUnits(gotchi, 0)) === 9358 ? 
-                  {backgroundImage: `url(${Gotchi9358})`, backgroundColor: "blue", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}:
-                  parseInt(ethers.utils.formatUnits(gotchi, 0)) === 12409 ? 
-                  {backgroundImage: `url(${Gotchi12409})`, backgroundColor: "blue", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}:
-                  parseInt(ethers.utils.formatUnits(gotchi, 0)) === 172 && 
-                  {backgroundImage: `url(${Gotchi172})`, backgroundColor: "blue", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}
-                } onClick={() => handleSelectId(parseInt(ethers.utils.formatUnits(gotchi, 0)))}/>
+                <p onClick={() => {setTokenId(gotchi.tokenId)}} style={{backgroundImage: `url(${url})`, backgroundColor: "blue", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px", /* padding: "20px 10px" */}} />
               </div>
-            ))}
+            )})}
           </div>
         </div>
         <div>
@@ -247,9 +248,6 @@ function App() {
           </div>
           <div className="inputfields">
             <input placeholder="match id" onChange={handleMatchId}/>
-{/*             <input placeholder="token id" onChange={handleTokenId}/>
-            <input placeholder="x" onChange={handleX}/>
-            <input placeholder="y"onChange={handleY}/> */}
           </div>
           <div className="grid-wrapper">
             {gridMap !== null &&
@@ -259,6 +257,7 @@ function App() {
                 match={match} 
                 setXToPlay={setXToPlay} 
                 setYToPlay={setYToPlay}
+                aavegotchiContract={aavegotchiContract}
               />
             }
           </div>
@@ -266,26 +265,22 @@ function App() {
         <div>
           <p>PLAYER2 CARDS:</p>
           <div>
-          {match !== null && match.player2Gotchis.map((gotchi, i) => (
-                <div key={i}>
-                  <p style={
-                    parseInt(ethers.utils.formatUnits(gotchi, 0)) === 22133 ? 
-                    {backgroundImage: `url(${Gotchi22133})`, backgroundColor: "red", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}:
-                    parseInt(ethers.utils.formatUnits(gotchi, 0)) === 1454 ? 
-                    {backgroundImage: `url(${Gotchi1454})`, backgroundColor: "red", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}:
-                    parseInt(ethers.utils.formatUnits(gotchi, 0)) === 21508 ? 
-                    {backgroundImage: `url(${Gotchi21508})`, backgroundColor: "red", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}:
-                    parseInt(ethers.utils.formatUnits(gotchi, 0)) === 22128 ? 
-                    {backgroundImage: `url(${Gotchi22128})`, backgroundColor: "red", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}:
-                    parseInt(ethers.utils.formatUnits(gotchi, 0)) === 2195 && 
-                    {backgroundImage: `url(${Gotchi2195})`, backgroundColor: "red", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px"}
-                  } onClick={() => handleSelectId(parseInt(ethers.utils.formatUnits(gotchi, 0)))}/>
+          {match !== null && player2Gotchis.map((gotchi, i) => {
+              let blob = new Blob([gotchi.svg], {type: 'image/svg+xml'});
+              let url = URL.createObjectURL(blob);
+              return (
+              <div key={i}>
+                <p onClick={() => {setTokenId(gotchi.tokenId)}} style={{backgroundImage: `url(${url})`, backgroundColor: "red", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", witdh: "200px", height: "200px", /* padding: "20px 10px" */}} />
               </div>
-            )
-          )}
+            )})}
           </div>
         </div>
       </div>
+      {playerIdsToSvgs.map((x, i) => {
+        let blob = new Blob([x], {type: 'image/svg+xml'});
+        let url = URL.createObjectURL(blob);
+        return <img key={i} src={url} style={{witdh: "200px", height: "200px"}}/>      
+      })}
     </div>
   );
 }
