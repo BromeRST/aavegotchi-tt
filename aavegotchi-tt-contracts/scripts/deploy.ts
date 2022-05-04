@@ -105,7 +105,9 @@ export async function deployDiamond() {
   await gameFacet.setAddresses(
     "0x86935F11C86623deC8a25696E1C19a8659CbF95d",
     "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063",
-    "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
+    "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    /* "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", */ "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    "0xE592427A0AEce92De3Edee1F18E0157C05861564"
   );
 
   const ierc721 = (await ethers.getContractAt(
@@ -153,6 +155,16 @@ export async function deployDiamond() {
 
   await ierc20.connect(signer2).transfer("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ethers.utils.parseUnits("10000", "ether"));
   await ierc20.connect(signer2).transfer("0x70997970C51812dc3A010C7d01b50e0d17dc79C8", ethers.utils.parseUnits("10000", "ether"));
+
+/*   await network.provider.request({
+    method: "hardhat_impersonateAccount",
+    params: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"],
+  });
+
+  const signer3 = await ethers.getSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+  await ierc20.connect(signer3).approve(diamond.address, ethers.utils.parseEther("1000000000000"));
+
+  await gameFacet.connect(signer3).swapExactInputSingle(ethers.utils.parseEther("1000"));  */
 
   return diamond.address;
 }

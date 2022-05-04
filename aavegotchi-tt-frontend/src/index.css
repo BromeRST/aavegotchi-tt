@@ -178,4 +178,20 @@ input {
   left: 15%;
   padding: 100px;
   background: black;
+  color: white;
+  font-size: 18px;
+}
+
+.grid-container:active,
+.grid-container:focus {
+  border: 25px solid red;
+}
+
+.ownded-modal p {
+  padding: 15px;
+}
+
+.owned-modal p:hover {
+  color: blue;
+  cursor: pointer;
 }

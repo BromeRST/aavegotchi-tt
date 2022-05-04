@@ -16,6 +16,7 @@ struct Match {
     uint256[] player1Gotchis;
     uint256[] player2Gotchis;
     uint8 movsCounter;
+    uint8 betsize;
     address winner;
 }
 
@@ -28,10 +29,20 @@ struct AppStorage {
     address aavegotchiDiamond;
     address dai;
     address aavePool;
+    address weth; //added
+    address swapRouterAddress; //added
     mapping(uint256 => Match) matches;
     mapping(uint256 => Tile[3][3]) grids;
+    mapping(address => uint256[]) addressToMatchIds;
     uint256 nextId;
-    Register[] registered;
+    Register[] registered1;
+    Register[] registered5;
+    Register[] registered10;
+    Register[] registered25;
+    Register[] registered50;
+    Register[] registered100;
+    Register[] registered200;
+    Register[] registered500;
 }
 
 library LibAppStorage {

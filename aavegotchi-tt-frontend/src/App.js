@@ -1,10 +1,11 @@
-import {useEffect, useState} from "react";
+import {useEffect, useState, useRef} from "react";
 import {ConnectButton} from "./components/ConnectButton";
 import { ethers } from "ethers";
 import abi from "./utils/abi.json";
 import aavegotchiABI from "./utils/aavegotchiABI"
 import ierc20ABI from "./utils/ierc20ABI"
 import Grid from "./components/Grid";
+import forwardedGrid from "./components/Grid";
 
 const DIAMOND_FORKED_MAINNET_CONTRACT = "0xa00F03Ea2d0a6e4961CaAFcA61A78334049c1848"
 const AAVEGOTCHI_FORKED_CONTRACT = "0x86935F11C86623deC8a25696E1C19a8659CbF95d"
@@ -32,6 +33,12 @@ function App() {
   const [player2Params, setPlayer2Params] = useState([]);
   const [playerAllGotchiParams, setPlayerAllGotchiParams] = useState([]);
   const [checkOwnedAavegotchi, setCheckOwnedAavegotchi] = useState(false);
+  const [playerMatchIds, setPlayerMatchesId] = useState([]);
+  const [checkMatchIds, setCheckMatchIds] = useState(false);
+  const [checkBetSizes, setCheckBetSizes] = useState(false);
+  const [betSize, setBetSize] = useState(null);
+
+  const gridRef = useRef(null);
 
 
   const checkIfWalletIsConnected = async () => {
@@ -89,12 +96,12 @@ function App() {
 
   const register = async () => {
     const gotchiToPlay = [3052, 21424, 9358, 12409, 172]
-    await mainContract.register(gotchiToPlay)
+    await mainContract.register(gotchiToPlay, betSize)
   }
 
   const register2 = async () => {
     const gotchiToPlay = [22133, 1454, 21508, 22128, 2195]
-    await mainContract.register(gotchiToPlay)
+    await mainContract.register(gotchiToPlay, betSize)
     let svg;
   }
 
@@ -112,9 +119,9 @@ function App() {
       const player1Ids = match.player1Gotchis;
       for (let i = 0; i < player1Ids.length; i ++) {
         let svg = await aavegotchiContract.getAavegotchiSvg(player1Ids[i]);
-        setPlayer1Gotchis(prevSvg => [...prevSvg, {tokenId: player1Ids[i], svg: svg}]);
         const gotchiParams = await checkGotchiParam(player1Ids[i]);
         setPlayer1Params(prevPar => [...prevPar, gotchiParams]);
+        setPlayer1Gotchis(prevSvg => [...prevSvg, {tokenId: player1Ids[i], svg: svg}]);
       }
   }
 
@@ -122,14 +129,14 @@ function App() {
     const player2Ids = match.player2Gotchis;
     for (let i = 0; i < player2Ids.length; i ++) {
       let svg = await aavegotchiContract.getAavegotchiSvg(player2Ids[i]);
-      setPlayer2Gotchis(prevSvg => [...prevSvg, {tokenId: player2Ids[i], svg: svg}]);
       const gotchiParams = await checkGotchiParam(player2Ids[i]);
       setPlayer2Params(prevPar => [...prevPar, gotchiParams]);
+      setPlayer2Gotchis(prevSvg => [...prevSvg, {tokenId: player2Ids[i], svg: svg}]);
     }
 }
 
   const getGrid = async () => {
-    const grid = await mainContract.getGrid(0); // to pass match id
+    const grid = await mainContract.getGrid(matchId); // to pass match id
     setGridMap(grid);
   }
 
@@ -139,7 +146,7 @@ function App() {
   }
 
   const getMatch = async () => {
-    const match = await mainContract.getMatch(0);
+    const match = await mainContract.getMatch(matchId);
     console.log("match", match)
     setMatch(match);
   }
@@ -153,19 +160,41 @@ function App() {
     await daiContract.approve(DIAMOND_FORKED_MAINNET_CONTRACT, ethers.utils.parseUnits("100000000000000000000000000", "ether"));
   }
 
+  const swap = async() => {
+    await mainContract.swapExactInputSingle(ethers.utils.parseEther("100"));
+  }
+
   const toggleCheckOwner = () => {
     setCheckOwnedAavegotchi(!checkOwnedAavegotchi);
   }
 
-  const handleMatchId = (e) => {
-    setMatchId(Number(e.target.value));
+  const toggleCheckMatchIds = () => {
+    setCheckMatchIds(!checkMatchIds);
   }
 
-  useEffect(() => {
-    if(match) {
-      tokenSvgsOfPlayer1();
+  const toggleCheckBetSizes = () => {
+    setCheckBetSizes(!checkBetSizes);
+  }
+
+  const clickOnCard = (id) => {
+    setTokenId(id);
+    console.log(gridRef)
+    gridRef.current.focus()
+  }
+
+  const findPlayerMatches = async () => {
+    const matches = await mainContract.findPlayerMatches();
+    if (matches.length > 0) {
+      for (let i = 0; i < matches.length; i++) {
+        setPlayerMatchesId(prevMatchesId => [...prevMatchesId, parseInt(ethers.utils.formatUnits(matches[i], 0))]);
+      }
     }
-  }, [aavegotchiContract])
+  }
+
+  const chooseBetSize = (e) => {
+    console.log(Number(e.target.innerText));
+    setBetSize(Number(e.target.innerText))
+  }
 
   useEffect(() => {
     checkIfWalletIsConnected();
@@ -215,10 +244,20 @@ function App() {
 
   useEffect(() => {
     if (mainContract) {
-      getGrid();
-      getMatch();
+      findPlayerMatches();
     }
   }, [mainContract])
+
+  useEffect(() => {
+    if (matchId !== null) {
+      setPlayer1Params([]);
+      setPlayer2Params([]);
+      setPlayer1Gotchis([]);
+      setPlayer2Gotchis([]);
+      getMatch();
+      getGrid();
+    }
+  }, [matchId])
 
   useEffect(() => {
     if (match) {
@@ -231,7 +270,9 @@ function App() {
     <div>
       <div className="nav">
         <p className="app-name">AAVEGOTCHI TT</p>
-        <button onClick={toggleCheckOwner}>check your own aavegotchis</button>
+        <button onClick={toggleCheckOwner}>check your own aavegotchis</button> 
+        <button onClick={toggleCheckMatchIds}>check your matches</button>
+        <button onClick={toggleCheckBetSizes}>choose a bet size</button>
         <ConnectButton 
           connected={connected}
           setConnected={setConnected}
@@ -252,7 +293,7 @@ function App() {
                 onClick={() => {setTokenId(gotchi.tokenId)}}
                 style={{backgroundImage: `url(${url})`, backgroundColor: "blue", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", width: "200px", height: "200px", margin: "15px"}}>
                   {
-                    player1Params.length > 4 && 
+                    player1Params[i].length > 4 && 
                     <div className="param-container">
                       <p className="up">{player1Params[i][0]}</p>
                       <div className="left-right">
@@ -273,13 +314,12 @@ function App() {
             <button onClick={approve}>approve</button>
             <button onClick={playCard}>play card</button>
             <button onClick={getMatch}>get match</button>
-          </div>
-          <div className="inputfields">
-            <input placeholder="match id" onChange={handleMatchId}/>
+            <button onClick={swap}>swap</button>
           </div>
           <div className="grid-wrapper">
             {gridMap !== null &&
-              <Grid 
+              <Grid
+                ref={gridRef} 
                 gridMap={gridMap} 
                 checkGotchiParam={checkGotchiParam} 
                 match={match} 
@@ -299,10 +339,10 @@ function App() {
               return (
               <div
                 key={i}
-                onClick={() => {setTokenId(gotchi.tokenId)}} 
+                onClick={() => clickOnCard(gotchi.tokenId)} 
                 style={{backgroundImage: `url(${url})`, backgroundColor: "red", backgroundBlendMode: "hard-light", backgroundSize: "cover", backgroundRepeat: "no-repeat", width: "200px", height: "200px", margin: "15px" }}>
                   {
-                    player2Params.length > 4 && 
+                    player2Params[i].length > 4 && 
                     <div className="param-container">
                       <p className="up">{player2Params[i][0]}</p>
                       <div className="left-right">
@@ -341,6 +381,26 @@ function App() {
           )      
         })}
       </div>
+      }
+      {
+        checkMatchIds && 
+        <div className="owned-modal">
+          {playerMatchIds.map(id => <p key={id} onClick={() => setMatchId(id)}>{id}</p>)}
+        </div>
+      }
+      {
+        checkBetSizes &&
+        <div className="owned-modal">
+          <p onClick={chooseBetSize}>1</p>
+          <p onClick={chooseBetSize}>5</p>
+          <p onClick={chooseBetSize}>10</p>
+          <p onClick={chooseBetSize}>25</p>
+          <p onClick={chooseBetSize}>50</p>
+          <p onClick={chooseBetSize}>100</p>
+          <p onClick={chooseBetSize}>200</p>
+          <p onClick={chooseBetSize}>500</p>
+
+        </div>
       }
     </div>
   );

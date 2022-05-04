@@ -1,9 +1,10 @@
 import Tile from "./Tile"
+import { forwardRef } from "react"
 
-export default function Grid({gridMap, checkGotchiParam, match, setXToPlay, setYToPlay, aavegotchiContract}) {
+function Grid ({gridMap, checkGotchiParam, match, setXToPlay, setYToPlay, aavegotchiContract}, ref) {
 
     return (
-        <div className="grid-container">
+        <div className="grid-container" ref={ref}>
             {gridMap.map((map, x) => map.map((tile, y) => 
                 <Tile 
                     key={y}
@@ -23,3 +24,7 @@ export default function Grid({gridMap, checkGotchiParam, match, setXToPlay, setY
         </div>
     )
 }
+
+const forwardedGrid = forwardRef(Grid);
+
+export default forwardedGrid
