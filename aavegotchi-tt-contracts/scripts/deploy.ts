@@ -7,13 +7,14 @@ import {
   Diamond__factory,
   OwnershipFacet,
   GameFacet,
+  GameFacet2,
   IERC721,
   IERC20,
 } from "../typechain";
 
 const { getSelectors, FacetCutAction } = require("./libraries/diamond");
 
-const gasPrice = 35000000000;
+const gasPrice = 700000000000;
 
 export async function deployDiamond() {
   const accounts: Signer[] = await ethers.getSigners();
@@ -50,7 +51,7 @@ export async function deployDiamond() {
   // deploy facets
   console.log("");
   console.log("Deploying facets");
-  const FacetNames = ["DiamondLoupeFacet", "OwnershipFacet", "GameFacet"];
+  const FacetNames = ["DiamondLoupeFacet", "OwnershipFacet", "GameFacet", "GameFacet2", "Owner"];
   const cut = [];
   for (const FacetName of FacetNames) {
     const Facet = await ethers.getContractFactory(FacetName);
@@ -102,11 +103,16 @@ export async function deployDiamond() {
     diamond.address
   )) as GameFacet;
 
+  const gameFacet2 = (await ethers.getContractAt(
+    "GameFacet2",
+    diamond.address
+  )) as GameFacet2;
+
   await gameFacet.setAddresses(
     "0x86935F11C86623deC8a25696E1C19a8659CbF95d",
     "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063",
     "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
-    /* "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", */ "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
     "0xE592427A0AEce92De3Edee1F18E0157C05861564"
   );
 

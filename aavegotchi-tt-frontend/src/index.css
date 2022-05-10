@@ -195,3 +195,9 @@ input {
   color: blue;
   cursor: pointer;
 }
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}

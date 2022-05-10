@@ -1,5 +1,30 @@
 [
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "_player1",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "_player2",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "_matchId",
+        "type": "uint256"
+      }
+    ],
+    "name": "MatchGenerated",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "approvePool",
     "outputs": [],
@@ -83,6 +108,11 @@
             "type": "bool"
           },
           {
+            "internalType": "bool",
+            "name": "contested",
+            "type": "bool"
+          },
+          {
             "internalType": "uint256[]",
             "name": "player1Gotchis",
             "type": "uint256[]"
@@ -91,6 +121,16 @@
             "internalType": "uint256[]",
             "name": "player2Gotchis",
             "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "betsize",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastMove",
+            "type": "uint256"
           },
           {
             "internalType": "uint8",
@@ -114,37 +154,14 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "matchId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "x",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "y",
-        "type": "uint256"
-      }
-    ],
-    "name": "playCard",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "uint256[]",
         "name": "tokenIds",
         "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "betsize",
+        "type": "uint256"
       }
     ],
     "name": "register",
@@ -186,22 +203,77 @@
     "type": "function"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "_matchId",
+        "type": "uint256"
+      }
+    ],
+    "name": "CardPlayed",
+    "type": "event"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "amountIn",
+        "name": "matchId",
         "type": "uint256"
       }
     ],
-    "name": "swapExactInputSingle",
-    "outputs": [
+    "name": "contestMatch",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
         "internalType": "uint256",
-        "name": "amountOut",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "matchId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "x",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "y",
         "type": "uint256"
       }
     ],
-    "stateMutability": "payable",
+    "name": "playCard",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
-  }
+  },
+  {
+      "inputs": [],
+      "name": "checkPlayerStakedAmount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
 ]

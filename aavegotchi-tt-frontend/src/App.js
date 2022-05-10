@@ -6,8 +6,9 @@ import aavegotchiABI from "./utils/aavegotchiABI"
 import ierc20ABI from "./utils/ierc20ABI"
 import Grid from "./components/Grid";
 import forwardedGrid from "./components/Grid";
+import { hexZeroPad } from "ethers/lib/utils";
 
-const DIAMOND_FORKED_MAINNET_CONTRACT = "0xa00F03Ea2d0a6e4961CaAFcA61A78334049c1848"
+const DIAMOND_FORKED_MAINNET_CONTRACT = "0x6DC1bEbb8e0881aCa6F082F5F53dD740c2DDF379"
 const AAVEGOTCHI_FORKED_CONTRACT = "0x86935F11C86623deC8a25696E1C19a8659CbF95d"
 const DAI_CONTRACT = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"
 
@@ -37,9 +38,10 @@ function App() {
   const [checkMatchIds, setCheckMatchIds] = useState(false);
   const [checkBetSizes, setCheckBetSizes] = useState(false);
   const [betSize, setBetSize] = useState(null);
+  const [checkedWinner, setCheckedWinner] = useState(false);
+  const [winner, setWinner] = useState(null);
 
   const gridRef = useRef(null);
-
 
   const checkIfWalletIsConnected = async () => {
     const { ethereum } = window;
@@ -136,19 +138,30 @@ function App() {
 }
 
   const getGrid = async () => {
-    const grid = await mainContract.getGrid(matchId); // to pass match id
+    const grid = await mainContract.getGrid(matchId);
     setGridMap(grid);
   }
 
   const playCard = async () => {
     await mainContract.playCard(tokenId, matchId, xToPlay, yToPlay);
-    setTimeout(getGrid, 3000);
   }
 
   const getMatch = async () => {
-    const match = await mainContract.getMatch(matchId);
-    console.log("match", match)
-    setMatch(match);
+    setCheckedWinner(false);
+    const m = await mainContract.getMatch(matchId);
+    console.log("match", m)
+    setMatch(m);
+    if (m.winner !== "0x0000000000000000000000000000000000000000") {
+      setCheckedWinner(true);
+      setWinner(
+        m.winner.substring(0,6) +
+        "..." + 
+        m.winner.substring(36));
+    }
+    if (m.movsCounter === 9 && m.winner === "0x0000000000000000000000000000000000000000") {
+      setCheckedWinner(true);
+      setWinner("DRAW")
+    }
   }
 
   const checkGotchiParam = async (id) => {
@@ -184,16 +197,40 @@ function App() {
 
   const findPlayerMatches = async () => {
     const matches = await mainContract.findPlayerMatches();
+    const m = [];
     if (matches.length > 0) {
+      m.push(parseInt(ethers.utils.formatUnits(matches[0], 0)));
       for (let i = 0; i < matches.length; i++) {
-        setPlayerMatchesId(prevMatchesId => [...prevMatchesId, parseInt(ethers.utils.formatUnits(matches[i], 0))]);
+        if (parseInt(ethers.utils.formatUnits(matches[i], 0)) !== m[i]) {
+          m.push(parseInt(ethers.utils.formatUnits(matches[i], 0)))
+        }
       }
+      setPlayerMatchesId(m);
     }
   }
 
   const chooseBetSize = (e) => {
-    console.log(Number(e.target.innerText));
-    setBetSize(Number(e.target.innerText))
+    let first = e.target.innerText.split(" ")[0];
+    console.log(Number(first));
+    setBetSize(Number(first))
+  }
+
+  const resetGridMatch = () => {
+    setPlayer1Params([]);
+    setPlayer2Params([]);
+    setPlayer1Gotchis([]);
+    setPlayer2Gotchis([]);
+    getMatch();
+    getGrid();
+  }
+
+  const stakedAmount = async () => {
+    const amount = await mainContract.checkPlayerStakedAmount();
+    console.log(ethers.utils.formatUnits(amount));
+  }
+
+  const contestMatch = async () => {
+    await mainContract.contestMatch(matchId);
   }
 
   useEffect(() => {
@@ -243,12 +280,6 @@ function App() {
   }, [provider])
 
   useEffect(() => {
-    if (mainContract) {
-      findPlayerMatches();
-    }
-  }, [mainContract])
-
-  useEffect(() => {
     if (matchId !== null) {
       setPlayer1Params([]);
       setPlayer2Params([]);
@@ -265,6 +296,24 @@ function App() {
       tokenSvgsOfPlayer2();
     }
   }, [match])
+
+  useEffect(() => {
+    if (mainContract) {
+      const REGISTERED_FILTER = mainContract.filters.MatchGenerated(currentAccount, null, null)
+      mainContract.on(REGISTERED_FILTER, findPlayerMatches);
+      const REGISTERED_FILTER2 = mainContract.filters.MatchGenerated(null, currentAccount, null)
+      mainContract.on(REGISTERED_FILTER2, findPlayerMatches);
+    }
+  }, [mainContract])
+
+  useEffect(() => {
+    if (matchId !== null) {
+      const CARD_FILTER = mainContract.filters.CardPlayed(matchId);
+      mainContract.on(CARD_FILTER, () => {
+        resetGridMatch();
+      })
+    }
+  }, [matchId])
 
   return (
     <div>
@@ -313,8 +362,8 @@ function App() {
             <button onClick={register2}>register2</button>
             <button onClick={approve}>approve</button>
             <button onClick={playCard}>play card</button>
-            <button onClick={getMatch}>get match</button>
-            <button onClick={swap}>swap</button>
+            <button onClick={contestMatch}>contest match</button>
+            <button onClick={stakedAmount}>swap</button>
           </div>
           <div className="grid-wrapper">
             {gridMap !== null &&
@@ -326,6 +375,8 @@ function App() {
                 setXToPlay={setXToPlay} 
                 setYToPlay={setYToPlay}
                 aavegotchiContract={aavegotchiContract}
+                checkedWinner={checkedWinner}
+                winner={winner}
               />
             }
           </div>
@@ -391,14 +442,14 @@ function App() {
       {
         checkBetSizes &&
         <div className="owned-modal">
-          <p onClick={chooseBetSize}>1</p>
-          <p onClick={chooseBetSize}>5</p>
-          <p onClick={chooseBetSize}>10</p>
-          <p onClick={chooseBetSize}>25</p>
-          <p onClick={chooseBetSize}>50</p>
-          <p onClick={chooseBetSize}>100</p>
-          <p onClick={chooseBetSize}>200</p>
-          <p onClick={chooseBetSize}>500</p>
+          <p onClick={chooseBetSize}>1 DAI</p>
+          <p onClick={chooseBetSize}>5 DAI</p>
+          <p onClick={chooseBetSize}>10 DAI</p>
+          <p onClick={chooseBetSize}>25 DAI</p>
+          <p onClick={chooseBetSize}>50 DAI</p>
+          <p onClick={chooseBetSize}>100 DAI</p>
+          <p onClick={chooseBetSize}>200 DAI</p>
+          <p onClick={chooseBetSize}>500 DAI</p>
 
         </div>
       }
