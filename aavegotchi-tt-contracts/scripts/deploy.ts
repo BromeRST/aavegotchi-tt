@@ -14,7 +14,7 @@ import {
 
 const { getSelectors, FacetCutAction } = require("./libraries/diamond");
 
-const gasPrice = 700000000000;
+const gasPrice = 7000000000000;
 
 export async function deployDiamond() {
   const accounts: Signer[] = await ethers.getSigners();
@@ -49,7 +49,6 @@ export async function deployDiamond() {
   console.log("DiamondInit deployed:", diamondInit.address);
 
   // deploy facets
-  console.log("");
   console.log("Deploying facets");
   const FacetNames = ["DiamondLoupeFacet", "OwnershipFacet", "GameFacet", "GameFacet2", "Owner"];
   const cut = [];

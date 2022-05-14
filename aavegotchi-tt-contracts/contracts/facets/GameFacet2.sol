@@ -160,6 +160,8 @@ contract GameFacet2 is Modifiers {
 
     function contestMatch(uint256 matchId) external {
         require(block.timestamp >= s.matches[matchId].lastMove + 600 /*  259200 (3 days) */, "GameFacet2: not enough time");
+        //better like this or to add s.matches[matchId].contested = true on checkWinner?
+        require(s.matches[matchId].winner == address(0), "GameFacet2: match already won");
         require(s.matches[matchId].contested != true, "GameFacet2: already contested");
         require(
             msg.sender == s.matches[matchId].player1 || 

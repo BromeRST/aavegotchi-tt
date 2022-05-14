@@ -34,7 +34,17 @@ const config: HardhatUserConfig = {
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
+    hardhat: {
+      chainId: 31337,
+      forking: {
+        url: process.env.POLYGON_URL || "",
+        blockNumber: 28299044,
+      }
+    }
   },
+  mocha: {
+    timeout: 100000000000,
+  }
 };
 
 export default config;
