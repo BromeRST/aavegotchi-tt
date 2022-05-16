@@ -15,10 +15,9 @@ let deployer: Signer;
 let deployerAddress: string;
 let alice: Signer;
 let aliceAddress: string;
-let bob: Signer;
-let bobAddress: string;
 let ierc20: IERC20;
 let deployerIerc20OriginalBalance: number;
+let aliceIerc20OriginalBalance: number;
 let player1Gotchis: number[];
 let player2Gotchis: number[];
 let player1GotchiParams: number[][];
@@ -60,8 +59,6 @@ describe("Aavegotchi-tt", function () {
       deployerAddress = await deployer.getAddress();
       alice = accounts[1];
       aliceAddress = await alice.getAddress();
-      bob = accounts[2];
-      bobAddress = await bob.getAddress();
       player1Gotchis = [3052, 21424, 9358, 12409, 172];
       player2Gotchis = [22133, 1454, 21508, 22128, 2195];
       player1GotchiParams = [];
@@ -180,11 +177,49 @@ describe("Aavegotchi-tt", function () {
 
       stakedAmount = await ownerFacet.checkPlayerStakedAmount();
       expect(parseInt(ethers.utils.formatUnits(stakedAmount))).to.be.equal(0);
-      console.log((ethers.utils.formatUnits(stakedAmount)))
       expect(parseInt(ethers.utils.formatUnits(await ierc20.balanceOf(deployerAddress)))).to.be.equal(deployerIerc20OriginalBalance + 500);
       await network.provider.send("evm_increaseTime", [86400]);
 
       gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
-      await expect(gameFacet2.contestMatch(0)).to.be.revertedWith("GameFacet2: match already won");
+      await expect(gameFacet2.contestMatch(0)).to.be.revertedWith("GameFacet2: already contested");
+    });
+
+    it ("Should test contest function", async function () {
+      deployerIerc20OriginalBalance = parseInt(ethers.utils.formatUnits(await ierc20.balanceOf(deployerAddress)));
+      aliceIerc20OriginalBalance = parseInt(ethers.utils.formatUnits(await ierc20.balanceOf(aliceAddress)));
+      
+      gameFacet = await impersonate(deployerAddress, gameFacet, ethers, network);
+      await gameFacet.register(player1Gotchis, 200);
+      expect(parseInt(ethers.utils.formatUnits(await ierc20.balanceOf(deployerAddress)))).to.be.equal(deployerIerc20OriginalBalance - 200);
+    
+      gameFacet = await impersonate(aliceAddress, gameFacet, ethers, network);
+      await gameFacet.register(player2Gotchis, 200);
+
+      gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
+
+      await expect(gameFacet2.contestMatch(1)).to.be.revertedWith("GameFacet2: not enough time");
+      await network.provider.send("evm_increaseTime", [86400]);
+      await gameFacet2.contestMatch(1);
+
+      const match1 = await gameFacet.getMatch(1);
+      expect(match1.winner).to.be.equal(aliceAddress);
+      expect(match1.contested).to.be.true;
+      expect(parseInt(ethers.utils.formatUnits(await ierc20.balanceOf(deployerAddress)))).to.be.equal(deployerIerc20OriginalBalance - 200);
+      expect(parseInt(ethers.utils.formatUnits(await ierc20.balanceOf(aliceAddress)))).to.be.equal(aliceIerc20OriginalBalance + 200);
+    });
+
+    it ("Should test owner withdraw function", async function () {
+      let stakedAmount = await ownerFacet.checkPlayerStakedAmount();
+      expect(parseInt(ethers.utils.formatUnits(stakedAmount))).to.be.equal(0);
+
+      ownerFacet = await impersonate(aliceAddress, ownerFacet, ethers, network);
+      await expect(ownerFacet.withdraw()).to.be.reverted;
+
+      ownerFacet = await impersonate(deployerAddress, ownerFacet, ethers, network);
+      deployerIerc20OriginalBalance = Number(ethers.utils.formatUnits(await ierc20.balanceOf(deployerAddress)));
+
+      await ownerFacet.withdraw();
+      expect(Number(ethers.utils.formatUnits(await ierc20.balanceOf(deployerAddress)))).to.be.greaterThan(deployerIerc20OriginalBalance);
+      await expect(ownerFacet.withdraw()).to.be.reverted;
     });
 });
