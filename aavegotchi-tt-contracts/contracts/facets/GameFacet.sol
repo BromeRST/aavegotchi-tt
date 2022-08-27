@@ -14,15 +14,15 @@ contract GameFacet is Modifiers {
 
     function register(uint256[] calldata tokenIds, uint256 betsize) external {
         require(
-            betsize == 1 || 
-            betsize == 5 || 
+            betsize == 1 ||
+            /* betsize == 5 || 
             betsize == 10 || 
             betsize == 25 || 
             betsize == 50 || 
             betsize == 100 || 
             betsize == 200 || 
             betsize == 500, 
-            "GameFacet: betsize doesn't exist"
+            "GameFacet: betsize doesn't exist" */
         );
 
         for (uint256 i; i < 5; i++) {
@@ -48,10 +48,10 @@ contract GameFacet is Modifiers {
         );
 
         if (betsize == 1) {
-            IERC20(s.dai).transferFrom(msg.sender, address(this), 1 ether);
-            IPool(s.aavePool).supply(s.dai, 1 ether, address(this), 0);
+            IERC20(s.dai).transferFrom(msg.sender, address(this), 0.1 ether /* 1 ether */);
+            IPool(s.aavePool).supply(s.dai, 0.1 ether /* 1 ether */, address(this), 0);
             s.registered1.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 1 ether;
+            s.playersAmountStaked += 0.1 ether /* 1 ether */;
             if (s.registered1.length == 2) {
                 _createMatch(
                     s.registered1[0].player,
@@ -65,7 +65,7 @@ contract GameFacet is Modifiers {
             }
         }
 
-        if (betsize == 5) {
+        /* if (betsize == 5) {
             IERC20(s.dai).transferFrom(msg.sender, address(this), 5 ether);
             IPool(s.aavePool).supply(s.dai, 5 ether, address(this), 0);
             s.registered5.push(Register(msg.sender, tokenIds));
@@ -190,7 +190,7 @@ contract GameFacet is Modifiers {
                 s.registered500.pop();
                 s.registered500.pop();
             }
-        }
+        } */
     }
 
     function _createMatch(
