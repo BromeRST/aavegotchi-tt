@@ -9,13 +9,16 @@ import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "hardhat/console.sol";
 
 contract GameFacet is Modifiers {
-
-    event MatchGenerated(address indexed _player1, address indexed _player2, uint256 _matchId);
+    event MatchGenerated(
+        address indexed _player1,
+        address indexed _player2,
+        uint256 _matchId
+    );
 
     function register(uint256[] calldata tokenIds, uint256 betsize) external {
         require(
-            betsize == 1 ||
-            /* betsize == 5 || 
+            betsize == 1 /* ||
+            betsize == 5 || 
             betsize == 10 || 
             betsize == 25 || 
             betsize == 50 || 
@@ -26,32 +29,41 @@ contract GameFacet is Modifiers {
         );
 
         for (uint256 i; i < 5; i++) {
-             require(
+            require(
                 IAavegotchiDiamond(s.aavegotchiDiamond).ownerOf(tokenIds[i]) ==
                     msg.sender,
                 "GameFacet: not owner"
-            ); 
+            );
         }
 
         require(
             tokenIds[0] != tokenIds[1] &&
-            tokenIds[0] != tokenIds[2] &&
-            tokenIds[0] != tokenIds[3] &&
-            tokenIds[0] != tokenIds[4] &&
-            tokenIds[1] != tokenIds[2] &&
-            tokenIds[1] != tokenIds[3] &&
-            tokenIds[1] != tokenIds[4] &&
-            tokenIds[2] != tokenIds[3] &&
-            tokenIds[2] != tokenIds[4] &&
-            tokenIds[3] != tokenIds[4],
-            "GameFacet: same tokenId" 
+                tokenIds[0] != tokenIds[2] &&
+                tokenIds[0] != tokenIds[3] &&
+                tokenIds[0] != tokenIds[4] &&
+                tokenIds[1] != tokenIds[2] &&
+                tokenIds[1] != tokenIds[3] &&
+                tokenIds[1] != tokenIds[4] &&
+                tokenIds[2] != tokenIds[3] &&
+                tokenIds[2] != tokenIds[4] &&
+                tokenIds[3] != tokenIds[4],
+            "GameFacet: same tokenId"
         );
 
         if (betsize == 1) {
-            IERC20(s.dai).transferFrom(msg.sender, address(this), 0.1 ether /* 1 ether */);
-            IPool(s.aavePool).supply(s.dai, 0.1 ether /* 1 ether */, address(this), 0);
+            IERC20(s.dai).transferFrom(
+                msg.sender,
+                address(this),
+                0.1 ether /* 1 ether */
+            );
+            IPool(s.aavePool).supply(
+                s.dai,
+                0.1 ether, /* 1 ether */
+                address(this),
+                0
+            );
             s.registered1.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 0.1 ether /* 1 ether */;
+            s.playersAmountStaked += 0.1 ether; /* 1 ether */
             if (s.registered1.length == 2) {
                 _createMatch(
                     s.registered1[0].player,
@@ -249,8 +261,7 @@ contract GameFacet is Modifiers {
         IERC20(s.dai).approve(s.aavePool, type(uint256).max);
     }
 
-    function findPlayerMatches() external view returns(uint256[] memory) {
+    function findPlayerMatches() external view returns (uint256[] memory) {
         return s.addressToMatchIds[msg.sender];
     }
-
 }

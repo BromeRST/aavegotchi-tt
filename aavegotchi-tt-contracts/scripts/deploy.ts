@@ -14,7 +14,7 @@ import {
 
 const { getSelectors, FacetCutAction } = require("./libraries/diamond");
 
-/* const gasPrice = 7000000000000; */
+const gasPrice = 50000000000;
 
 export async function deployDiamond() {
   const accounts: Signer[] = await ethers.getSigners();
@@ -24,7 +24,7 @@ export async function deployDiamond() {
 
   // deploy DiamondCutFacet
   const DiamondCutFacet = await ethers.getContractFactory("DiamondCutFacet");
-  const diamondCutFacet = await DiamondCutFacet.deploy(/* { gasPrice } */);
+  const diamondCutFacet = await DiamondCutFacet.deploy({ gasPrice });
   await diamondCutFacet.deployed();
   console.log("DiamondCutFacet deployed:", diamondCutFacet.address);
 
@@ -34,8 +34,8 @@ export async function deployDiamond() {
   )) as Diamond__factory;
   const diamond = await Diamond.deploy(
     deployerAddress,
-    diamondCutFacet.address
-    /* { gasPrice } */
+    diamondCutFacet.address,
+    { gasPrice }
   );
   await diamond.deployed();
   console.log("Diamond deployed:", diamond.address);
@@ -44,7 +44,7 @@ export async function deployDiamond() {
   const DiamondInit = (await ethers.getContractFactory(
     "DiamondInit"
   )) as DiamondInit__factory;
-  const diamondInit = await DiamondInit.deploy(/* { gasPrice } */);
+  const diamondInit = await DiamondInit.deploy({ gasPrice });
   await diamondInit.deployed();
   console.log("DiamondInit deployed:", diamondInit.address);
 
@@ -60,7 +60,7 @@ export async function deployDiamond() {
   const cut = [];
   for (const FacetName of FacetNames) {
     const Facet = await ethers.getContractFactory(FacetName);
-    const facet = await Facet.deploy(/* { gasPrice } */);
+    const facet = await Facet.deploy({ gasPrice });
     await facet.deployed();
     console.log(`${FacetName} deployed: ${facet.address}`);
     cut.push({
@@ -80,8 +80,8 @@ export async function deployDiamond() {
   const tx = await diamondCut.diamondCut(
     cut,
     diamondInit.address,
-    functionCall
-    /* { gasPrice } */
+    functionCall,
+    { gasPrice }
   );
   console.log("Diamond cut tx: ", tx.hash);
   const receipt = await tx.wait();
@@ -108,25 +108,29 @@ export async function deployDiamond() {
     diamond.address
   )) as GameFacet;
 
-  const gameFacet2 = (await ethers.getContractAt(
+  /*   const gameFacet2 = (await ethers.getContractAt(
     "GameFacet2",
     diamond.address
-  )) as GameFacet2;
+  )) as GameFacet2; */
 
   await gameFacet.setAddresses(
     "0x86935F11C86623deC8a25696E1C19a8659CbF95d",
     "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063",
     "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
     "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
-    "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+    { gasPrice }
   );
 
-  const ierc721 = (await ethers.getContractAt(
+  console.log(1);
+  /*   const ierc721 = (await ethers.getContractAt(
     "IERC721",
     "0x86935F11C86623deC8a25696E1C19a8659CbF95d"
-  )) as IERC721;
+  )) as IERC721; */
 
-  await gameFacet.approvePool();
+  await gameFacet.approvePool({ gasPrice });
+
+  console.log(2);
 
   /* await network.provider.request({
     method: "hardhat_impersonateAccount",

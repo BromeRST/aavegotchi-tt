@@ -23,7 +23,8 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
-const { POLYGON_URL, POLYGONSCAN_API_KEY, PRIVATE_KEY } = process.env;
+const { POLYGON_URL, POLYGONSCAN_API_KEY, PRIVATE_KEY, MUMBAI_URL } =
+  process.env;
 
 const config: HardhatUserConfig = {
   solidity: "0.8.13",
@@ -34,6 +35,10 @@ const config: HardhatUserConfig = {
     },
     polygon: {
       url: POLYGON_URL || "",
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    },
+    mumbai: {
+      url: MUMBAI_URL || "",
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
     hardhat: {
