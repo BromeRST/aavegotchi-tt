@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-import {AppStorage, Modifiers, Match, Register, Tile} from "../libraries/AppStorage.sol";
+import {AppStorage, Modifiers, Match, Register, Tile, Register} from "../libraries/AppStorage.sol";
 import "../interfaces/IAavegotchiDiamond.sol";
 import "../interfaces/IPool.sol";
 import "../interfaces/IERC20.sol";
@@ -264,4 +264,12 @@ contract GameFacet is Modifiers {
     function findPlayerMatches() external view returns (uint256[] memory) {
         return s.addressToMatchIds[msg.sender];
     }
+
+    /* function checkRegisteredMatches()
+        external
+        view
+        returns (Register[] memory)
+    {
+        return s.registered1;
+    } */
 }

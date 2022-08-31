@@ -132,7 +132,8 @@ contract GameFacet2 is Modifiers {
         s.matches[matchId].contested = true;
         uint256 player1Points;
         uint256 player2Points;
-        uint256 winnerPrize = s.matches[matchId].betsize * 2 ether;
+        uint256 winnerPrize = 0.2 ether; /* s.matches[matchId].betsize * 2 ether; */
+        s.playersAmountStaked -= winnerPrize;
         for (uint256 i; i < 3; i++) {
             for (uint256 j; j < 3; j++) {
                 if (s.grids[matchId][i][j].winner == s.matches[matchId].player1)
@@ -159,17 +160,15 @@ contract GameFacet2 is Modifiers {
         } else if (player2Points == 4) {
             IPool(s.aavePool).withdraw(
                 s.dai,
-                s.matches[matchId].betsize * 1 ether,
+                winnerPrize / 2, /* s.matches[matchId].betsize * 1 ether, */
                 s.matches[matchId].player1
             );
             IPool(s.aavePool).withdraw(
                 s.dai,
-                s.matches[matchId].betsize * 1 ether,
+                winnerPrize / 2, /* s.matches[matchId].betsize * 1 ether, */
                 s.matches[matchId].player2
             );
         }
-
-        s.playersAmountStaked -= winnerPrize;
     }
 
     function popArray(uint256[] storage _array, uint256 _index) internal {
@@ -192,7 +191,8 @@ contract GameFacet2 is Modifiers {
                 msg.sender == LibDiamond.contractOwner(),
             "GameFacet2: you are not allowed"
         );
-        uint256 winnerPrize = s.matches[matchId].betsize * 2 ether;
+        uint256 winnerPrize = 0.2 ether; /* s.matches[matchId].betsize * 2 ether; */ // this cause the bug
+        s.playersAmountStaked -= winnerPrize;
         s.matches[matchId].contested = true;
         if (s.matches[matchId].player2Turn) {
             IPool(s.aavePool).withdraw(
@@ -209,7 +209,5 @@ contract GameFacet2 is Modifiers {
             );
             s.matches[matchId].winner = s.matches[matchId].player2;
         }
-
-        s.playersAmountStaked -= winnerPrize;
     }
 }

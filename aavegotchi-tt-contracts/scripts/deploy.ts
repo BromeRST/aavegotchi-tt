@@ -108,7 +108,7 @@ export async function deployDiamond() {
     diamond.address
   )) as GameFacet;
 
-  /*   const gameFacet2 = (await ethers.getContractAt(
+  /* const gameFacet2 = (await ethers.getContractAt(
     "GameFacet2",
     diamond.address
   )) as GameFacet2; */
@@ -123,10 +123,10 @@ export async function deployDiamond() {
   );
 
   console.log(1);
-  /*   const ierc721 = (await ethers.getContractAt(
+  const ierc721 = (await ethers.getContractAt(
     "IERC721",
     "0x86935F11C86623deC8a25696E1C19a8659CbF95d"
-  )) as IERC721; */
+  )) as IERC721;
 
   await gameFacet.approvePool({ gasPrice });
 
@@ -244,16 +244,24 @@ export async function deployDiamond() {
       "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
       ethers.utils.parseUnits("10000", "ether")
     );
- */
-  /*   await network.provider.request({
+
+  console.log(3); */
+
+  /* await network.provider.request({
     method: "hardhat_impersonateAccount",
     params: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"],
   });
 
-  const signer3 = await ethers.getSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
-  await ierc20.connect(signer3).approve(diamond.address, ethers.utils.parseEther("1000000000000"));
+    const signer3 = await ethers.getSigner(
+    "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  );
+  await ierc20
+    .connect(signer3)
+    .approve(diamond.address, ethers.utils.parseEther("1000000000000"));
 
-  await gameFacet.connect(signer3).swapExactInputSingle(ethers.utils.parseEther("1000"));  */
+  await gameFacet
+    .connect(signer3)
+    .swapExactInputSingle(ethers.utils.parseEther("1000")); */
 
   return diamond.address;
 }
