@@ -29,8 +29,7 @@ struct Register {
 
 struct AppStorage {
     address aavegotchiDiamond;
-    address dai;
-    address aavePool;
+    address BetToken;
     address weth; //added
     address swapRouterAddress; //added
     mapping(uint256 => Match) matches;

@@ -2,6 +2,7 @@ import * as dotenv from "dotenv";
 
 import { HardhatUserConfig, task } from "hardhat/config";
 import "@nomiclabs/hardhat-etherscan";
+import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "hardhat-gas-reporter";
@@ -22,6 +23,9 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
+const { POLYGON_URL, POLYGONSCAN_API_KEY, PRIVATE_KEY, MUMBAI_URL } =
+  process.env;
+
 const config: HardhatUserConfig = {
   solidity: "0.8.13",
   networks: {
@@ -30,21 +34,27 @@ const config: HardhatUserConfig = {
       chainId: 31337,
     },
     polygon: {
-      url: process.env.POLYGON_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      url: POLYGON_URL || "",
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    },
+    mumbai: {
+      url: MUMBAI_URL || "",
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
     hardhat: {
       chainId: 31337,
       forking: {
-        url: process.env.POLYGON_URL || "",
+        url: POLYGON_URL || "",
         blockNumber: 28299044,
-      }
-    }
+      },
+    },
   },
   mocha: {
     timeout: 100000000000,
-  }
+  },
+  etherscan: {
+    apiKey: POLYGONSCAN_API_KEY,
+  },
 };
 
 export default config;

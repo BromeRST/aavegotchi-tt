@@ -14,7 +14,7 @@ import {
 
 const { getSelectors, FacetCutAction } = require("./libraries/diamond");
 
-const gasPrice = 7000000000000;
+const gasPrice = 50000000000;
 
 export async function deployDiamond() {
   const accounts: Signer[] = await ethers.getSigners();
@@ -50,7 +50,13 @@ export async function deployDiamond() {
 
   // deploy facets
   console.log("Deploying facets");
-  const FacetNames = ["DiamondLoupeFacet", "OwnershipFacet", "GameFacet", "GameFacet2", "Owner"];
+  const FacetNames = [
+    "DiamondLoupeFacet",
+    "OwnershipFacet",
+    "GameFacet",
+    "GameFacet2",
+    "Owner",
+  ];
   const cut = [];
   for (const FacetName of FacetNames) {
     const Facet = await ethers.getContractFactory(FacetName);
@@ -102,44 +108,110 @@ export async function deployDiamond() {
     diamond.address
   )) as GameFacet;
 
-  const gameFacet2 = (await ethers.getContractAt(
+  /* const gameFacet2 = (await ethers.getContractAt(
     "GameFacet2",
     diamond.address
-  )) as GameFacet2;
+  )) as GameFacet2; */
 
   await gameFacet.setAddresses(
     "0x86935F11C86623deC8a25696E1C19a8659CbF95d",
     "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063",
     "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
     "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
-    "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+    { gasPrice }
   );
 
+  console.log(1);
   const ierc721 = (await ethers.getContractAt(
     "IERC721",
     "0x86935F11C86623deC8a25696E1C19a8659CbF95d"
   )) as IERC721;
 
-  await gameFacet.approvePool();
+  await gameFacet.approvePool({ gasPrice });
 
-  await network.provider.request({
-      method: "hardhat_impersonateAccount",
-      params: ["0xd9d54f0f67fde251ab41ffb36579f308b592d905"],
-    });
+  console.log(2);
 
-  const signer = await ethers.getSigner("0xd9d54f0f67fde251ab41ffb36579f308b592d905")
+  /* await network.provider.request({
+    method: "hardhat_impersonateAccount",
+    params: ["0xd9d54f0f67fde251ab41ffb36579f308b592d905"],
+  });
 
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", 3052)
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", 21424)
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", 9358)
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", 12409)
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", 172)
+  const signer = await ethers.getSigner(
+    "0xd9d54f0f67fde251ab41ffb36579f308b592d905"
+  );
 
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", 22133)
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", 1454)
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", 21508)
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", 22128)
-  await ierc721.connect(signer)["safeTransferFrom(address,address,uint256)"](signer.address, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", 2195)
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      3052
+    );
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      21424
+    );
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      9358
+    );
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      12409
+    );
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      172
+    );
+
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      22133
+    );
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      1454
+    );
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      21508
+    );
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      22128
+    );
+  await ierc721
+    .connect(signer)
+    ["safeTransferFrom(address,address,uint256)"](
+      signer.address,
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      2195
+    );
 
   await network.provider.request({
     method: "hardhat_stopImpersonatingAccount",
@@ -151,25 +223,45 @@ export async function deployDiamond() {
     params: ["0x06959153B974D0D5fDfd87D561db6d8d4FA0bb0B"],
   });
 
-  const signer2 = await ethers.getSigner("0x06959153B974D0D5fDfd87D561db6d8d4FA0bb0B");
+  const signer2 = await ethers.getSigner(
+    "0x06959153B974D0D5fDfd87D561db6d8d4FA0bb0B"
+  );
 
   const ierc20 = (await ethers.getContractAt(
     "IERC20",
     "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"
   )) as IERC20;
 
-  await ierc20.connect(signer2).transfer("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ethers.utils.parseUnits("10000", "ether"));
-  await ierc20.connect(signer2).transfer("0x70997970C51812dc3A010C7d01b50e0d17dc79C8", ethers.utils.parseUnits("10000", "ether"));
+  await ierc20
+    .connect(signer2)
+    .transfer(
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      ethers.utils.parseUnits("10000", "ether")
+    );
+  await ierc20
+    .connect(signer2)
+    .transfer(
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      ethers.utils.parseUnits("10000", "ether")
+    );
 
-/*   await network.provider.request({
+  console.log(3); */
+
+  /* await network.provider.request({
     method: "hardhat_impersonateAccount",
     params: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"],
   });
 
-  const signer3 = await ethers.getSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
-  await ierc20.connect(signer3).approve(diamond.address, ethers.utils.parseEther("1000000000000"));
+    const signer3 = await ethers.getSigner(
+    "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  );
+  await ierc20
+    .connect(signer3)
+    .approve(diamond.address, ethers.utils.parseEther("1000000000000"));
 
-  await gameFacet.connect(signer3).swapExactInputSingle(ethers.utils.parseEther("1000"));  */
+  await gameFacet
+    .connect(signer3)
+    .swapExactInputSingle(ethers.utils.parseEther("1000")); */
 
   return diamond.address;
 }
