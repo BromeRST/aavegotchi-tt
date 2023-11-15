@@ -29,8 +29,7 @@ struct Register {
 
 struct AppStorage {
     address aavegotchiDiamond;
-    address dai;
-    address aavePool;
+    address BetToken;
     address weth; //added
     address swapRouterAddress; //added
     mapping(uint256 => Match) matches;
@@ -39,13 +38,13 @@ struct AppStorage {
     uint256 nextId;
     uint256 playersAmountStaked;
     Register[] registered1;
-    /* Register[] registered5;
+    Register[] registered5;
     Register[] registered10;
     Register[] registered25;
     Register[] registered50;
     Register[] registered100;
     Register[] registered200;
-    Register[] registered500; */
+    Register[] registered500;
 }
 
 library LibAppStorage {

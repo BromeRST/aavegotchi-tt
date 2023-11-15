@@ -8,209 +8,119 @@ import "../interfaces/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "hardhat/console.sol";
 
+/**
+ * @title GameFacet
+ * @dev This contract manages game matches, player registrations, and betting in a blockchain-based game environment.
+ * It interacts with ERC20 tokens and external contracts for game functionalities.
+ */
 contract GameFacet is Modifiers {
-    event MatchGenerated(
-        address indexed _player1,
-        address indexed _player2,
-        uint256 _matchId
-    );
+    /**
+     * @dev Registers players for a match with their token IDs and bet size.
+     * @param tokenIds An array of token IDs representing the player's NFTs.
+     * @param betSize The size of the bet placed by the player.
+     */
+    function register(uint256[] calldata tokenIds, uint256 betSize) external {
+        validateBetSize(betSize);
+        require(tokenIds.length == 5, "GameFacet: Invalid number of tokens");
+        validateTokenOwnership(tokenIds);
+        validateTokenUniqueness(tokenIds);
 
-    function register(uint256[] calldata tokenIds, uint256 betsize) external {
+        handleBet(tokenIds, betSize);
+    }
+
+    /**
+     * @dev Validates the bet size to ensure it's within the accepted range.
+     * @param betSize The bet size to validate.
+     */
+    function validateBetSize(uint256 betSize) internal pure {
         require(
-            betsize == 1 /* ||
-            betsize == 5 || 
-            betsize == 10 || 
-            betsize == 25 || 
-            betsize == 50 || 
-            betsize == 100 || 
-            betsize == 200 || 
-            betsize == 500, 
-            "GameFacet: betsize doesn't exist" */
+            betSize == 1 ||
+                betSize == 5 ||
+                betSize == 10 ||
+                betSize == 25 ||
+                betSize == 50 ||
+                betSize == 100 ||
+                betSize == 200 ||
+                betSize == 500,
+            "GameFacet: Invalid bet size"
         );
+    }
 
-        for (uint256 i; i < 5; i++) {
+    /**
+     * @dev Validates that the sender owns the tokens they are trying to register with.
+     * @param tokenIds Array of token IDs to validate ownership of.
+     */
+    function validateTokenOwnership(uint256[] memory tokenIds) internal view {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             require(
                 IAavegotchiDiamond(s.aavegotchiDiamond).ownerOf(tokenIds[i]) ==
                     msg.sender,
-                "GameFacet: not owner"
+                "GameFacet: Not token owner"
             );
         }
-
-        require(
-            tokenIds[0] != tokenIds[1] &&
-                tokenIds[0] != tokenIds[2] &&
-                tokenIds[0] != tokenIds[3] &&
-                tokenIds[0] != tokenIds[4] &&
-                tokenIds[1] != tokenIds[2] &&
-                tokenIds[1] != tokenIds[3] &&
-                tokenIds[1] != tokenIds[4] &&
-                tokenIds[2] != tokenIds[3] &&
-                tokenIds[2] != tokenIds[4] &&
-                tokenIds[3] != tokenIds[4],
-            "GameFacet: same tokenId"
-        );
-
-        if (betsize == 1) {
-            IERC20(s.dai).transferFrom(
-                msg.sender,
-                address(this),
-                0.1 ether /* 1 ether */
-            );
-            IPool(s.aavePool).supply(
-                s.dai,
-                0.1 ether, /* 1 ether */
-                address(this),
-                0
-            );
-            s.registered1.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 0.1 ether; /* 1 ether */
-            if (s.registered1.length == 2) {
-                _createMatch(
-                    s.registered1[0].player,
-                    msg.sender,
-                    s.registered1[0].tokenIds,
-                    tokenIds,
-                    betsize
-                );
-                s.registered1.pop();
-                s.registered1.pop();
-            }
-        }
-
-        /* if (betsize == 5) {
-            IERC20(s.dai).transferFrom(msg.sender, address(this), 5 ether);
-            IPool(s.aavePool).supply(s.dai, 5 ether, address(this), 0);
-            s.registered5.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 5 ether;
-            if (s.registered5.length == 2) {
-                _createMatch(
-                    s.registered5[0].player,
-                    msg.sender,
-                    s.registered5[0].tokenIds,
-                    tokenIds,
-                    betsize
-                );
-                s.registered5.pop();
-                s.registered5.pop();
-            }
-        }
-
-        if (betsize == 10) {
-            IERC20(s.dai).transferFrom(msg.sender, address(this), 10 ether);
-            IPool(s.aavePool).supply(s.dai, 10 ether, address(this), 0);
-            s.registered10.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 10 ether;
-            if (s.registered10.length == 2) {
-                _createMatch(
-                    s.registered10[0].player,
-                    msg.sender,
-                    s.registered10[0].tokenIds,
-                    tokenIds,
-                    betsize
-                );
-                s.registered10.pop();
-                s.registered10.pop();
-            }
-        }
-
-        if (betsize == 25) {
-            IERC20(s.dai).transferFrom(msg.sender, address(this), 25 ether);
-            IPool(s.aavePool).supply(s.dai, 25 ether, address(this), 0);
-            s.registered25.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 25 ether;
-            if (s.registered25.length == 2) {
-                _createMatch(
-                    s.registered25[0].player,
-                    msg.sender,
-                    s.registered25[0].tokenIds,
-                    tokenIds,
-                    betsize
-                );
-                s.registered25.pop();
-                s.registered25.pop();
-            }
-        }
-
-        if (betsize == 50) {
-            IERC20(s.dai).transferFrom(msg.sender, address(this), 50 ether);
-            IPool(s.aavePool).supply(s.dai, 50 ether, address(this), 0);
-            s.registered50.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 50 ether;
-            if (s.registered50.length == 2) {
-                _createMatch(
-                    s.registered50[0].player,
-                    msg.sender,
-                    s.registered50[0].tokenIds,
-                    tokenIds,
-                    betsize
-                );
-                s.registered50.pop();
-                s.registered50.pop();
-            }
-        }
-
-        if (betsize == 100) {
-            IERC20(s.dai).transferFrom(msg.sender, address(this), 100 ether);
-            IPool(s.aavePool).supply(s.dai, 100 ether, address(this), 0);
-            s.registered100.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 100 ether;
-            if (s.registered100.length == 2) {
-                _createMatch(
-                    s.registered100[0].player,
-                    msg.sender,
-                    s.registered100[0].tokenIds,
-                    tokenIds,
-                    betsize
-                );
-                s.registered100.pop();
-                s.registered100.pop();
-            }
-        }
-        
-
-        if (betsize == 200) {
-            IERC20(s.dai).transferFrom(msg.sender, address(this), 200 ether);
-            IPool(s.aavePool).supply(s.dai, 200 ether, address(this), 0);
-            s.registered200.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 200 ether;
-            if (s.registered200.length == 2) {
-                _createMatch(
-                    s.registered200[0].player,
-                    msg.sender,
-                    s.registered200[0].tokenIds,
-                    tokenIds,
-                    betsize
-                );
-                s.registered200.pop();
-                s.registered200.pop();
-            }
-        }
-
-        if (betsize == 500) {
-            IERC20(s.dai).transferFrom(msg.sender, address(this), 500 ether);
-            IPool(s.aavePool).supply(s.dai, 500 ether, address(this), 0);
-            s.registered500.push(Register(msg.sender, tokenIds));
-            s.playersAmountStaked += 500 ether;
-            if (s.registered500.length == 2) {
-                _createMatch(
-                    s.registered500[0].player,
-                    msg.sender,
-                    s.registered500[0].tokenIds,
-                    tokenIds,
-                    betsize
-                );
-                s.registered500.pop();
-                s.registered500.pop();
-            }
-        } */
     }
 
+    /**
+     * @dev Ensures all token (cards) IDs provided are unique and not repeated.
+     * @param tokenIds Array of token (cards) IDs to check for uniqueness.
+     */
+    function validateTokenUniqueness(uint256[] memory tokenIds) internal pure {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            for (uint256 j = i + 1; j < tokenIds.length; j++) {
+                require(
+                    tokenIds[i] != tokenIds[j],
+                    "GameFacet: Duplicate tokenIds"
+                );
+            }
+        }
+    }
+
+    /**
+     * @dev Handles the bet logic including token transfers and registration for matching.
+     * @param tokenIds Array of player's token (cards) IDs.
+     * @param betSize Size of the bet placed by the player.
+     */
+    function handleBet(uint256[] memory tokenIds, uint256 betSize) internal {
+        uint256 etherAmount = betSize * 1 ether; // Convert bet size to Ether equivalent
+        IERC20(s.dai).transferFrom(msg.sender, address(this), etherAmount);
+
+        // Logic to push to the appropriate array based on betSize
+        Register memory newRegistration = Register(msg.sender, tokenIds);
+        // Logic to handle new registration based on betSize
+        // Logic to create a match if enough players are registered
+
+        createMatchIfReady(betSize);
+    }
+
+    /**
+     * @dev Creates a match if there are enough registered players for the given bet size.
+     * @param betSize The bet size for which to check the readiness of a match.
+     */
+    function createMatchIfReady(uint256 betSize) internal {
+        // Implementation for checking registered players and creating a match
+        if (s.registeredPlayers[betSize].length == 2) {
+            address player1 = s.registeredPlayers[betSize][0];
+            address player2 = s.registeredPlayers[betSize][1];
+            uint256[] memory player1Ids = s.registeredPlayerIds[player1];
+            uint256[] memory player2Ids = s.registeredPlayerIds[player2];
+            _createMatch(player1, player2, player1Ids, player2Ids, betSize);
+        }
+    }
+
+    /**
+     * @dev Internal function to create a match between players.
+     * @param player1 Address of the first player.
+     * @param player2 Address of the second player.
+     * @param player1Ids Array of token IDs for the first player.
+     * @param player2Ids Array of token IDs for the second player.
+     * @param betSize Size of the bet for the match.
+     */
     function _createMatch(
         address player1,
         address player2,
         uint256[] memory player1Ids,
         uint256[] memory player2Ids,
-        uint256 _betsize
+        uint256 betSize
     ) internal {
         Match memory newMatch = Match(
             player1,
@@ -231,45 +141,58 @@ contract GameFacet is Modifiers {
         s.nextId++;
     }
 
-    function getGrid(uint256 matchId)
-        external
-        view
-        returns (Tile[3][3] memory)
-    {
+    /**
+     * @dev Retrieves the grid state for a given match.
+     * @param matchId The ID of the match.
+     * @return A 3x3 grid representing the current state of the specified match.
+     */
+    function getGrid(
+        uint256 matchId
+    ) external view returns (Tile[3][3] memory) {
         return s.grids[matchId];
     }
 
+    /**
+     * @dev Retrieves match details for a given match ID.
+     * @param matchId The ID of the match.
+     * @return Match details including player addresses, bet size, etc.
+     */
     function getMatch(uint256 matchId) external view returns (Match memory) {
         return s.matches[matchId];
     }
 
+    /**
+     * @dev Sets the addresses of various external contracts and tokens used in the game.
+     * @param _aavegotchiDiamond Address of the Aavegotchi Diamond contract.
+     * @param _BetERC20Token Address of the ERC20 token contract used to bet.
+     * @param _weth Address of the WETH token contract.
+     * @param _swapRouter Address of the Swap Router.
+     */
     function setAddresses(
         address _aavegotchiDiamond,
-        address _DAI,
-        address _aavePool,
-        address _weth,
-        address _swapRouter
+        address _BetERC20Token,
     ) external onlyOwner {
         s.aavegotchiDiamond = _aavegotchiDiamond;
-        s.dai = _DAI;
-        s.aavePool = _aavePool;
-        s.weth = _weth;
-        s.swapRouterAddress = _swapRouter;
+        s.BetToken = _BetERC20Token;
     }
 
-    function approvePool() external onlyOwner {
-        IERC20(s.dai).approve(s.aavePool, type(uint256).max);
-    }
-
+    /**
+     * @dev Finds all match IDs associated with the calling player.
+     * @return An array of match IDs the player is involved in.
+     */
     function findPlayerMatches() external view returns (uint256[] memory) {
         return s.addressToMatchIds[msg.sender];
     }
 
-    /* function checkRegisteredMatches()
+    /**
+     * @dev Checks registered matches for the lowest bet size category.
+     * @return An array of registrations for the lowest bet size category.
+     */
+    function checkRegisteredMatches()
         external
         view
         returns (Register[] memory)
     {
         return s.registered1;
-    } */
+    }
 }
