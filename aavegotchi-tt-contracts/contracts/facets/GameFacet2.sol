@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity ^0.8.20;
 
-import {AppStorage, Modifiers, Match, Register, Tile} from "../libraries/AppStorage.sol";
+import {AppStorage, Modifiers, Match, Tile} from "../libraries/AppStorage.sol";
 import {LibDiamond} from "../libraries/LibDiamond.sol";
 import "../interfaces/IAavegotchiDiamond.sol";
-import "../interfaces/IPool.sol";
 import "../interfaces/IERC20.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "hardhat/console.sol";
 
 contract GameFacet2 is Modifiers {
     /// @notice Emitted when a card is played in a match.
@@ -113,19 +110,55 @@ contract GameFacet2 is Modifiers {
         uint256 y,
         int16[6] memory playerGotchiParams
     ) internal {
-        // Check each direction: left, right, up, down
+        // Use helper functions to reduce stack depth
         if (x > 0) {
-            captureTile(matchId, x - 1, y, playerGotchiParams);
+            tryCaptureLeft(matchId, x, y, playerGotchiParams);
         }
         if (x < 2) {
-            captureTile(matchId, x + 1, y, playerGotchiParams);
+            tryCaptureRight(matchId, x, y, playerGotchiParams);
         }
         if (y > 0) {
-            captureTile(matchId, x, y - 1, playerGotchiParams);
+            tryCaptureUp(matchId, x, y, playerGotchiParams);
         }
         if (y < 2) {
-            captureTile(matchId, x, y + 1, playerGotchiParams);
+            tryCaptureDown(matchId, x, y, playerGotchiParams);
         }
+    }
+
+    function tryCaptureLeft(
+        uint256 matchId,
+        uint256 x,
+        uint256 y,
+        int16[6] memory playerGotchiParams
+    ) internal {
+        captureTile(matchId, x - 1, y, playerGotchiParams, 3, 1);
+    }
+
+    function tryCaptureRight(
+        uint256 matchId,
+        uint256 x,
+        uint256 y,
+        int16[6] memory playerGotchiParams
+    ) internal {
+        captureTile(matchId, x + 1, y, playerGotchiParams, 1, 3);
+    }
+
+    function tryCaptureUp(
+        uint256 matchId,
+        uint256 x,
+        uint256 y,
+        int16[6] memory playerGotchiParams
+    ) internal {
+        captureTile(matchId, x, y - 1, playerGotchiParams, 0, 2);
+    }
+
+    function tryCaptureDown(
+        uint256 matchId,
+        uint256 x,
+        uint256 y,
+        int16[6] memory playerGotchiParams
+    ) internal {
+        captureTile(matchId, x, y + 1, playerGotchiParams, 2, 0);
     }
 
     /// @dev Captures a tile if the played Gotchi's traits are favorable compared to the adjacent Gotchi.
@@ -134,13 +167,16 @@ contract GameFacet2 is Modifiers {
     /// @param x The x-coordinate of the tile to potentially capture.
     /// @param y The y-coordinate of the tile to potentially capture.
     /// @param playerGotchiParams The traits of the played Gotchi used for comparison in capturing.
+    /// @param playerTraitIndex Index of the player trait to compare.
+    /// @param opponentTraitIndex Index of the opponent trait to compare.
     function captureTile(
         uint256 matchId,
         uint256 x,
         uint256 y,
-        int16[6] memory playerGotchiParams
+        int16[6] memory playerGotchiParams,
+        uint8 playerTraitIndex,
+        uint8 opponentTraitIndex
     ) internal {
-        // Check if the tile is active and owned by the opponent
         if (
             s.grids[matchId][y][x].isActive &&
             s.grids[matchId][y][x].winner != msg.sender
@@ -150,24 +186,10 @@ contract GameFacet2 is Modifiers {
                 s.aavegotchiDiamond
             ).getAavegotchi(oppositeTokenId).modifiedNumericTraits;
 
-            // Logic to compare specific traits for capturing
-            if (x != 0 && playerGotchiParams[3] > oppositeGotchiParams[1]) {
-                // Left
-                s.grids[matchId][y][x].winner = msg.sender;
-            } else if (
-                x + 1 < 3 && playerGotchiParams[1] > oppositeGotchiParams[3]
-            ) {
-                // Right
-                s.grids[matchId][y][x].winner = msg.sender;
-            } else if (
-                y != 0 && playerGotchiParams[0] > oppositeGotchiParams[2]
-            ) {
-                // Up
-                s.grids[matchId][y][x].winner = msg.sender;
-            } else if (
-                y + 1 < 3 && playerGotchiParams[2] > oppositeGotchiParams[0]
-            ) {
-                // Down
+            int16 playerTrait = playerGotchiParams[playerTraitIndex];
+            int16 opponentTrait = oppositeGotchiParams[opponentTraitIndex];
+
+            if (playerTrait > opponentTrait) {
                 s.grids[matchId][y][x].winner = msg.sender;
             }
         }
@@ -181,15 +203,47 @@ contract GameFacet2 is Modifiers {
         // Determine the winner based on points or other criteria
         address winner = determineWinner(matchId);
 
-        // Calculate the prize amount
         uint256 prizeAmount = s.matches[matchId].betsize * 2 ether;
-        s.playersAmountStaked -= prizeAmount;
-
-        // Transfer the prize to the winner
-        IERC20(s.dai).transfer(winner, prizeAmount);
+        if (prizeAmount > 0) {
+            s.playersAmountStaked -= prizeAmount;
+            IERC20(s.ghst).transfer(winner, prizeAmount);
+        }
 
         // Update match details
         s.matches[matchId].winner = winner;
+    }
+
+    /// @dev Determines the winner based on the number of tiles controlled by each player.
+    /// @param matchId The ID of the match for which to determine the winner.
+    /// @return winner The address of the winner.
+    function determineWinner(
+        uint256 matchId
+    ) internal view returns (address winner) {
+        Match storage matchData = s.matches[matchId];
+
+        uint256 player1Tiles = 0;
+        uint256 player2Tiles = 0;
+
+        // Count tiles controlled by each player
+        for (uint256 i = 0; i < 3; i++) {
+            for (uint256 j = 0; j < 3; j++) {
+                Tile memory tile = s.grids[matchId][i][j];
+                if (tile.winner == matchData.player1) {
+                    player1Tiles++;
+                } else if (tile.winner == matchData.player2) {
+                    player2Tiles++;
+                }
+            }
+        }
+
+        // Determine winner based on tile control
+        if (player1Tiles > player2Tiles) {
+            winner = matchData.player1;
+        } else if (player2Tiles > player1Tiles) {
+            winner = matchData.player2;
+        } else {
+            winner = address(0); // Draw or no winner scenario
+        }
     }
 
     function popArray(uint256[] storage _array, uint256 _index) internal {
@@ -197,36 +251,17 @@ contract GameFacet2 is Modifiers {
         _array.pop();
     }
 
-    /// @dev Allows players to contest a match after a certain time period.
-    /// @param matchId The ID of the match to be contested.
-    function contestMatch(uint256 matchId) external {
-        // Ensure enough time has passed since the last move.
-        require(
-            block.timestamp >= s.matches[matchId].lastMove + 600, // 10 minutes for testing, change to 3 days (259200 seconds) in production
-            "GameFacet2: not enough time"
-        );
-
-        // Ensure the match has not been contested yet.
-        require(!s.matches[matchId].contested, "GameFacet2: already contested");
-
-        // Ensure that the sender is one of the players or the contract owner.
-        require(
-            msg.sender == s.matches[matchId].player1 ||
-                msg.sender == s.matches[matchId].player2 ||
-                msg.sender == LibDiamond.contractOwner(),
-            "GameFacet2: you are not allowed"
-        );
-
-        // Calculate the winner's prize.
-        uint256 winnerPrize = s.matches[matchId].betsize * 2 ether;
-        s.playersAmountStaked -= winnerPrize;
-        s.matches[matchId].contested = true;
-
-        // Determine the winner based on who has the turn.
-        address winner = s.matches[matchId].player2Turn
-            ? s.matches[matchId].player1
-            : s.matches[matchId].player2;
-        IERC20(s.dai).transfer(winner, winnerPrize);
-        s.matches[matchId].winner = winner;
+    function traitToValue(uint256 num) public pure returns (uint256) {
+        if (num <= 1 || num >= 99) return 10; // A
+        if ((num >= 2 && num <= 3) || (num >= 97 && num <= 98)) return 9;
+        if ((num >= 4 && num <= 5) || (num >= 95 && num <= 96)) return 8;
+        if ((num >= 6 && num <= 7) || (num >= 93 && num <= 94)) return 7;
+        if ((num >= 8 && num <= 9) || (num >= 91 && num <= 92)) return 6;
+        if ((num >= 10 && num <= 19) || (num >= 81 && num <= 90)) return 5;
+        if ((num >= 20 && num <= 29) || (num >= 71 && num <= 80)) return 4;
+        if ((num >= 30 && num <= 39) || (num >= 61 && num <= 70)) return 3;
+        if ((num >= 40 && num <= 49) || (num >= 51 && num <= 60)) return 2;
+        if (num == 50) return 1; // J
+        return 0; // None
     }
 }

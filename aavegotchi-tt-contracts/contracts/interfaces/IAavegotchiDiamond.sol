@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity ^0.8.20;
 
 uint256 constant NUMERIC_TRAITS_NUM = 6;
 uint256 constant EQUIPPED_WEARABLE_SLOTS = 16;
@@ -73,8 +73,7 @@ struct AavegotchiInfo {
 interface IAavegotchiDiamond {
     function ownerOf(uint256 _tokenId) external view returns (address owner_);
 
-    function getAavegotchi(uint256 _tokenId)
-        external
-        view
-        returns (AavegotchiInfo memory aavegotchiInfo_);
+    function getAavegotchi(
+        uint256 _tokenId
+    ) external view returns (AavegotchiInfo memory aavegotchiInfo_);
 }
