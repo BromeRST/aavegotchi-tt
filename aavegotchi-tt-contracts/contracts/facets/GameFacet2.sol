@@ -7,6 +7,8 @@ import "../interfaces/IAavegotchiDiamond.sol";
 import "../interfaces/IERC20.sol";
 
 contract GameFacet2 is Modifiers {
+    event MatchContested(uint256 matchId, address winner);
+
     /// @notice Emitted when a card is played in a match.
     /// @param _matchId The ID of the match where the card is played.
     event CardPlayed(uint256 indexed _matchId);
@@ -24,6 +26,10 @@ contract GameFacet2 is Modifiers {
     ) external {
         validatePlayConditions(matchId, tokenId, x, y);
         updateGameGrid(matchId, tokenId, x, y);
+
+        // Update the last move timestamp
+        s.matches[matchId].lastMove = block.timestamp;
+
         emit CardPlayed(matchId);
 
         if (s.matches[matchId].movsCounter == 9) {
@@ -91,6 +97,10 @@ contract GameFacet2 is Modifiers {
         int16[6] memory playerGotchiParams = IAavegotchiDiamond(
             s.aavegotchiDiamond
         ).getAavegotchi(tokenId).modifiedNumericTraits;
+
+        // Apply the tile's bonus/malus to the relevant trait
+        uint8 traitIndex = s.grids[matchId][y][x].bonusTraitIndex;
+        playerGotchiParams[traitIndex] += int16(s.grids[matchId][y][x].bonus);
 
         // Check adjacent tiles and potentially capture them
         checkAndCaptureAdjacent(matchId, x, y, playerGotchiParams);
@@ -203,11 +213,8 @@ contract GameFacet2 is Modifiers {
         // Determine the winner based on points or other criteria
         address winner = determineWinner(matchId);
 
-        uint256 prizeAmount = s.matches[matchId].betsize * 2 ether;
-        if (prizeAmount > 0) {
-            s.playersAmountStaked -= prizeAmount;
-            IERC20(s.ghst).transfer(winner, prizeAmount);
-        }
+        // Handle prize distribution
+        _handlePrizeDistribution(winner, s.matches[matchId].betsize);
 
         // Update match details
         s.matches[matchId].winner = winner;
@@ -263,5 +270,53 @@ contract GameFacet2 is Modifiers {
         if ((num >= 40 && num <= 49) || (num >= 51 && num <= 60)) return 2;
         if (num == 50) return 1; // J
         return 0; // None
+    }
+
+    function contestMatch(uint256 matchId) external {
+        Match storage matchData = s.matches[matchId];
+
+        // Ensure the match is still active and hasn't been contested.
+        require(!matchData.contested, "GameFacet: Match already contested");
+
+        // Ensure enough time has passed since the last move.
+        require(
+            block.timestamp >= matchData.lastMove + 1 hours,
+            "GameFacet: Not enough time has passed"
+        );
+
+        // Determine the current player
+        address currentPlayer = matchData.player2Turn
+            ? matchData.player1
+            : matchData.player2;
+
+        // Ensure the caller is the player who made the last move.
+        require(
+            msg.sender == currentPlayer,
+            "GameFacet: Only the player who made the last move can contest"
+        );
+
+        // Declare the caller as the winner.
+        matchData.winner = msg.sender;
+        matchData.contested = true;
+
+        // Handle prize distribution
+        _handlePrizeDistribution(msg.sender, matchData.betsize);
+
+        emit MatchContested(matchId, msg.sender);
+    }
+
+    function _handlePrizeDistribution(
+        address winner,
+        uint256 betSize
+    ) internal {
+        uint256 prizeAmount = betSize * 2 ether;
+
+        if (prizeAmount > 0) {
+            // Deduct the prize amount from the total staked amount
+            s.playersAmountStaked -= prizeAmount;
+
+            // Transfer the prize to the winner
+            IERC20(s.ghst).transfer(winner, prizeAmount);
+        }
     }
 }

@@ -27,8 +27,6 @@ contract GameFacet is Modifiers {
             isActive: true
         });
 
-        initializeGrid(roomId);
-
         s.nextRoomId++;
 
         handleBet(msg.sender, betSize);
@@ -52,6 +50,13 @@ contract GameFacet is Modifiers {
 
         uint256 matchId = s.nextId;
         s.nextId++;
+
+        // Initialize the grid with bonuses/maluses using the opponent's traits as a randomness source
+        int16[6] memory opponentTraits = IAavegotchiDiamond(s.aavegotchiDiamond)
+            .getAavegotchi(tokenIds[0])
+            .modifiedNumericTraits;
+
+        initializeGridWithBonuses(matchId, opponentTraits);
 
         createMatch(room, matchId, tokenIds);
 
@@ -103,7 +108,34 @@ contract GameFacet is Modifiers {
 
     function handleBet(address player, uint256 betSize) internal {
         uint256 etherAmount = betSize * 1 ether; // Convert bet size to Ether equivalent
-        IERC20(s.BetToken).transferFrom(player, address(this), etherAmount);
+        uint256 feeAmount = (etherAmount * s.feePercentage) / 100;
+        uint256 netBetAmount = etherAmount - feeAmount;
+
+        // Collect the fee
+        if (feeAmount > 0) {
+            uint256 daoShare = (feeAmount * s.daoPercentage) / s.feePercentage;
+            uint256 softwareHouseShare = (feeAmount *
+                s.softwareHousePercentage) / s.feePercentage;
+            uint256 developerShare = (feeAmount * s.developerPercentage) /
+                s.feePercentage;
+
+            // Transfer the fee to respective addresses
+            IERC20(s.ghst).transferFrom(player, s.daoAddress, daoShare);
+            IERC20(s.ghst).transferFrom(
+                player,
+                s.softwareHouseAddress,
+                softwareHouseShare
+            );
+            IERC20(s.ghst).transferFrom(
+                player,
+                s.developerAddress,
+                developerShare
+            );
+        }
+
+        // Transfer the remaining bet amount to the contract as the prize pool
+        IERC20(s.ghst).transferFrom(player, address(this), netBetAmount);
+        s.playersAmountStaked += netBetAmount;
     }
 
     function validateBetSize(uint256 betSize) internal pure {
@@ -142,15 +174,53 @@ contract GameFacet is Modifiers {
         }
     }
 
-    function initializeGrid(uint256 roomId) internal {
+    function initializeGridWithBonuses(
+        uint256 matchId,
+        int16[6] memory playerTraits
+    ) internal {
+        uint256 randomSeed = getRandomNumber(matchId, playerTraits); // Use player traits as part of the seed
+
         for (uint256 i = 0; i < 3; i++) {
             for (uint256 j = 0; j < 3; j++) {
-                s.grids[roomId][i][j] = Tile({
+                // Generate a random bonus/malus (0 means no effect)
+                int8 bonus = int8(
+                    int256(getRandomNumber(randomSeed, playerTraits) % 5) - 2
+                ); // -2 to 2
+
+                // Randomly select which trait to apply this bonus/malus to (0 to 5, representing the 6 traits)
+                uint256 randomTraitIndex = getRandomNumber(
+                    randomSeed,
+                    playerTraits
+                ) % 6;
+
+                s.grids[matchId][i][j] = Tile({
                     isActive: false,
                     tokenId: 0,
-                    winner: address(0)
+                    winner: address(0),
+                    bonus: bonus,
+                    bonusTraitIndex: uint8(randomTraitIndex) // New field for trait index
                 });
+
+                // Update the seed for the next tile
+                randomSeed = getRandomNumber(randomSeed, playerTraits);
             }
         }
+    }
+
+    function getRandomNumber(
+        uint256 seed,
+        int16[6] memory traits
+    ) internal view returns (uint256) {
+        return
+            uint256(
+                keccak256(
+                    abi.encodePacked(
+                        block.timestamp,
+                        block.prevrandao,
+                        seed,
+                        traits
+                    )
+                )
+            );
     }
 }

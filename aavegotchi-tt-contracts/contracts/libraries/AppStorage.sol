@@ -7,6 +7,8 @@ struct Tile {
     bool isActive;
     uint256 tokenId;
     address winner;
+    int8 bonus; // The bonus or malus applied to the tile (can be positive or negative)
+    uint8 bonusTraitIndex; // Index of the trait to which the bonus/malus applies
 }
 
 struct Match {
@@ -40,6 +42,14 @@ struct AppStorage {
     uint256 nextId;
     uint256 nextRoomId; // Added for room IDs
     uint256 playersAmountStaked;
+    // Added for fees
+    uint256 feePercentage;
+    uint256 daoPercentage;
+    uint256 softwareHousePercentage;
+    uint256 developerPercentage;
+    address daoAddress;
+    address softwareHouseAddress;
+    address developerAddress;
 }
 
 library LibAppStorage {
