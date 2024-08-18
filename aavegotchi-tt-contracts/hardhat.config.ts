@@ -43,13 +43,13 @@ const config: HardhatUserConfig = {
       chainId: 31337,
     },
     polygon: {
-      url: "https://polygon-rpc.com" || "",
+      url: POLYGON_URL || "https://polygon-rpc.com",
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
     hardhat: {
       chainId: 31337,
       forking: {
-        url: "https://polygon-rpc.com" || "",
+        url: POLYGON_URL || "https://polygon-rpc.com",
       },
     },
   },

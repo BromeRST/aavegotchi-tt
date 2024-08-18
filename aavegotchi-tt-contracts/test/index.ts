@@ -56,7 +56,7 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
     )) as GettersFacet;
 
     GHST = (await ethers.getContractAt(
-      "GHST",
+      "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20",
       "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7"
     )) as IERC20;
 
@@ -70,8 +70,74 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
     deployerAddress = await deployer.getAddress();
     alice = accounts[1];
     aliceAddress = await alice.getAddress();
-    player1Gotchis = [3052, 21424, 9358, 12409, 172];
-    player2Gotchis = [22133, 1454, 21508, 22128, 2195];
+
+    // Impersonate the GHST holder to distribute GHST
+    const ghstHolder = "0x8c8E076Cd7D2A17Ba2a5e5AF7036c2b2B7F790f6";
+    await network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [ghstHolder],
+    });
+
+    const ghstSigner = await ethers.getSigner(ghstHolder);
+
+    // Transfer GHST to the players
+    await GHST.connect(ghstSigner).transfer(
+      deployerAddress,
+      ethers.utils.parseUnits("1000", "ether")
+    );
+
+    await GHST.connect(ghstSigner).transfer(
+      aliceAddress,
+      ethers.utils.parseUnits("1000", "ether")
+    );
+
+    await network.provider.request({
+      method: "hardhat_stopImpersonatingAccount",
+      params: [ghstHolder],
+    });
+
+    // Impersonate the Gotchi holder to distribute Gotchis
+    const gotchiHolder = "0xAd0CEb6Dc055477b8a737B630D6210EFa76a2265";
+    await network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [gotchiHolder],
+    });
+
+    const gotchiSigner = await ethers.getSigner(gotchiHolder);
+
+    // Initialize the player1Gotchis and player2Gotchis arrays
+    player1Gotchis = [];
+    player2Gotchis = [];
+
+    // Distribute Gotchis to player 1 (deployer) and player 2 (alice)
+    const allGotchis = [
+      15515, 21615, 11662, 16102, 23022, 23482, 10579, 18793, 24007, 4160,
+    ];
+
+    console.log("sending gotchis");
+
+    for (let i = 0; i < allGotchis.length; i++) {
+      if (i < 5) {
+        // First 5 Gotchis go to player 1 (deployer)
+        await aavegotchiContract
+          .connect(gotchiSigner)
+          .safeTransferFrom(gotchiHolder, deployerAddress, allGotchis[i]);
+        player1Gotchis.push(allGotchis[i]);
+      } else {
+        // Next 5 Gotchis go to player 2 (alice)
+        await aavegotchiContract
+          .connect(gotchiSigner)
+          .safeTransferFrom(gotchiHolder, aliceAddress, allGotchis[i]);
+        player2Gotchis.push(allGotchis[i]);
+      }
+    }
+
+    console.log("gotchis sent");
+
+    await network.provider.request({
+      method: "hardhat_stopImpersonatingAccount",
+      params: [gotchiHolder],
+    });
 
     // Initialize fees and addresses
     await ownerFacet.initializeFeesAndAddresses(
@@ -79,9 +145,9 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
       1, // 1% to DAO
       1, // 1% to software house
       1, // 1% to developer
-      "0xDAOAddressHere", // DAO address
-      "0xSoftwareHouseAddressHere", // Software House address
-      "0xDeveloperAddressHere" // Developer address
+      "0x3Edc831685e4D54C890Aa7afb7F607E03667a4B0", // Replace with actual DAO address
+      "0xAd0CEb6Dc055477b8a737B630D6210EFa76a2265", // Replace with actual Software House address
+      "0x36c1BfF2BEB82Ec4383EE06C1Aca2E12CFC259a0" // Replace with actual Developer address
     );
 
     // Optionally fetch the traits here if needed for advanced tests
