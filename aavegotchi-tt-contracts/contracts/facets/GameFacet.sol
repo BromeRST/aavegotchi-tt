@@ -77,7 +77,7 @@ contract GameFacet is Modifiers {
 
         // Refund the bet amount to the room creator
         uint256 etherAmount = room.betSize * 1 ether; // Convert bet size to Ether equivalent
-        IERC20(s.BetToken).transfer(room.creator, etherAmount);
+        IERC20(s.ghst).transfer(room.creator, etherAmount);
 
         emit RoomCancelled(roomId, msg.sender);
     }

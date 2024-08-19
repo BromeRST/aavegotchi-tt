@@ -33,7 +33,6 @@ struct Room {
 
 struct AppStorage {
     address aavegotchiDiamond;
-    address BetToken;
     address ghst;
     mapping(uint256 => Match) matches;
     mapping(uint256 => Tile[3][3]) grids;

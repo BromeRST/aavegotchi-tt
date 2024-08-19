@@ -11,6 +11,7 @@ import {
   IAavegotchiDiamond,
 } from "../typechain";
 import { impersonate } from "../scripts/utils";
+import { DAO_ADDRESS, BUILDER_ADDRESS, SOFTWARE_HOUSE_ADDRESS } from "../lib";
 
 let gameFacet: GameFacet;
 let gameFacet2: GameFacet2;
@@ -145,9 +146,9 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
       1, // 1% to DAO
       1, // 1% to software house
       1, // 1% to developer
-      "0x3Edc831685e4D54C890Aa7afb7F607E03667a4B0", // Replace with actual DAO address
-      "0xAd0CEb6Dc055477b8a737B630D6210EFa76a2265", // Replace with actual Software House address
-      "0x36c1BfF2BEB82Ec4383EE06C1Aca2E12CFC259a0" // Replace with actual Developer address
+      DAO_ADDRESS, // Replace with actual DAO address
+      SOFTWARE_HOUSE_ADDRESS, // Replace with actual Software House address
+      BUILDER_ADDRESS // Replace with actual Developer address
     );
 
     // Optionally fetch the traits here if needed for advanced tests
@@ -169,26 +170,31 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
       ethers.utils.parseUnits("100000000000000000000000000", "ether")
     );
 
+    console.log("ghst approved");
+
     deployerGhstOriginalBalance = parseInt(
       ethers.utils.formatUnits(await GHST.balanceOf(deployerAddress))
     );
 
+    console.log("deployer balance", deployerGhstOriginalBalance);
+
     await gameFacet.createRoom(player1Gotchis, 500);
 
+    console.log("room created");
+
     const expectedBalance = deployerGhstOriginalBalance - 500;
+
     expect(
       parseInt(ethers.utils.formatUnits(await GHST.balanceOf(deployerAddress)))
     ).to.be.equal(expectedBalance);
   });
 
   it("Should apply fees correctly when the match is created", async function () {
-    const initialDaoBalance = await GHST.balanceOf("0xDAOAddressHere");
+    const initialDaoBalance = await GHST.balanceOf(DAO_ADDRESS);
     const initialSoftwareHouseBalance = await GHST.balanceOf(
-      "0xSoftwareHouseAddressHere"
+      SOFTWARE_HOUSE_ADDRESS
     );
-    const initialDeveloperBalance = await GHST.balanceOf(
-      "0xDeveloperAddressHere"
-    );
+    const initialDeveloperBalance = await GHST.balanceOf(BUILDER_ADDRESS);
 
     // Join room as Alice
     gameFacet = await impersonate(aliceAddress, gameFacet, ethers, network);
@@ -199,21 +205,21 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
     );
     await gameFacet.joinRoom(0, player2Gotchis);
 
-    // Calculate expected balances after fees
-    const totalFee = (500 * 3) / 100;
-    const expectedDaoBalance = initialDaoBalance.add(totalFee / 3);
-    const expectedSoftwareHouseBalance = initialSoftwareHouseBalance.add(
-      totalFee / 3
-    );
-    const expectedDeveloperBalance = initialDeveloperBalance.add(totalFee / 3);
+    const totalFee = ethers.utils.parseUnits("500", "ether").mul(3).div(100); // This converts the fee calculation to BigNumber
 
-    expect(await GHST.balanceOf("0xDAOAddressHere")).to.be.equal(
-      expectedDaoBalance
+    const expectedDaoBalance = initialDaoBalance.add(totalFee.div(3));
+    const expectedSoftwareHouseBalance = initialSoftwareHouseBalance.add(
+      totalFee.div(3)
     );
-    expect(await GHST.balanceOf("0xSoftwareHouseAddressHere")).to.be.equal(
+    const expectedDeveloperBalance = initialDeveloperBalance.add(
+      totalFee.div(3)
+    );
+
+    expect(await GHST.balanceOf(DAO_ADDRESS)).to.be.equal(expectedDaoBalance);
+    expect(await GHST.balanceOf(SOFTWARE_HOUSE_ADDRESS)).to.be.equal(
       expectedSoftwareHouseBalance
     );
-    expect(await GHST.balanceOf("0xDeveloperAddressHere")).to.be.equal(
+    expect(await GHST.balanceOf(BUILDER_ADDRESS)).to.be.equal(
       expectedDeveloperBalance
     );
   });
@@ -260,9 +266,11 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
 
   it("Should test play card function with bonuses applied", async function () {
     gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
-    await expect(gameFacet2.playCard(22133, 0, 2, 0)).to.be.revertedWith(
-      "GameFacet: Not your turn"
-    );
+
+    // Attempting to play an invalid card ID from Alice's set (should fail)
+    await expect(
+      gameFacet2.playCard(player1Gotchis[0], 0, 2, 0)
+    ).to.be.revertedWith("GameFacet: Not your turn");
 
     gameFacet2 = await impersonate(
       deployerAddress,
@@ -270,23 +278,31 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
       ethers,
       network
     );
+
+    // Attempting to play an invalid card ID from Deployer's set (should fail)
     await expect(gameFacet2.playCard(22133, 0, 2, 0)).to.be.revertedWith(
       "GameFacet: Invalid token"
     );
-    await expect(gameFacet2.playCard(9358, 0, 4, 0)).to.be.revertedWith(
-      "GameFacet: Invalid coordinates"
-    );
-    await expect(gameFacet2.playCard(9358, 0, 0, 4)).to.be.revertedWith(
-      "GameFacet: Invalid coordinates"
-    );
 
-    await gameFacet2.playCard(9358, 0, 0, 0);
+    // Attempting to play with invalid coordinates (should fail)
+    await expect(
+      gameFacet2.playCard(player1Gotchis[0], 0, 4, 0)
+    ).to.be.revertedWith("GameFacet: Invalid coordinates");
+    await expect(
+      gameFacet2.playCard(player1Gotchis[0], 0, 0, 4)
+    ).to.be.revertedWith("GameFacet: Invalid coordinates");
+
+    // Correctly playing the first Gotchi card for the deployer
+    await gameFacet2.playCard(player1Gotchis[0], 0, 0, 0);
 
     gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
-    await expect(gameFacet2.playCard(21508, 0, 0, 0)).to.be.revertedWith(
-      "GameFacet: Spot already taken"
-    );
-    await gameFacet2.playCard(21508, 0, 1, 1);
+
+    // Attempting to play the first Gotchi card for Alice
+    await expect(
+      gameFacet2.playCard(player2Gotchis[0], 0, 0, 0)
+    ).to.be.revertedWith("GameFacet: Spot already taken");
+
+    await gameFacet2.playCard(player2Gotchis[0], 0, 1, 1);
 
     gameFacet2 = await impersonate(
       deployerAddress,
@@ -294,7 +310,9 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
       ethers,
       network
     );
-    await gameFacet2.playCard(21424, 0, 0, 1);
+
+    // Continue playing the next cards in the sequence
+    await gameFacet2.playCard(player1Gotchis[1], 0, 0, 1);
 
     const grid = await gettersFacet.getGrid(0);
     expect(grid[1][1].winner).to.be.equal(deployerAddress);
@@ -302,7 +320,9 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
 
   it("Should test match winner with bonuses/maluses", async function () {
     gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
-    await gameFacet2.playCard(1454, 0, 1, 0);
+
+    // Alice plays her first Gotchi card
+    await gameFacet2.playCard(player2Gotchis[1], 0, 1, 0);
 
     let grid = await gettersFacet.getGrid(0);
     expect(grid[1][1].winner).to.be.equal(aliceAddress);
@@ -314,14 +334,19 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
       ethers,
       network
     );
-    await expect(gameFacet2.playCard(21424, 0, 2, 0)).to.be.reverted;
-    await gameFacet2.playCard(3052, 0, 2, 0);
+
+    // Deployer tries to play a card in an invalid spot (should fail)
+    await expect(gameFacet2.playCard(player1Gotchis[1], 0, 2, 0)).to.be
+      .reverted;
+
+    // Deployer plays their next Gotchi card in a valid spot
+    await gameFacet2.playCard(player1Gotchis[2], 0, 2, 0);
 
     grid = await gettersFacet.getGrid(0);
     expect(grid[1][0].winner).to.be.equal(deployerAddress);
 
     gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
-    await gameFacet2.playCard(2195, 0, 2, 1);
+    await gameFacet2.playCard(player2Gotchis[2], 0, 2, 1);
 
     gameFacet2 = await impersonate(
       deployerAddress,
@@ -329,28 +354,28 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
       ethers,
       network
     );
-    await gameFacet2.playCard(172, 0, 2, 2);
+    await gameFacet2.playCard(player1Gotchis[3], 0, 2, 2);
 
     gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
-    await gameFacet2.playCard(22128, 0, 1, 2);
+    await gameFacet2.playCard(player2Gotchis[3], 0, 1, 2);
 
-    // TODO: check winner balance instead of using checkPlayerStakedAmount
-
+    // Deployer plays their final Gotchi card to win the match
     gameFacet2 = await impersonate(
       deployerAddress,
       gameFacet2,
       ethers,
       network
     );
-    await gameFacet2.playCard(12409, 0, 0, 2);
+    await gameFacet2.playCard(player1Gotchis[4], 0, 0, 2);
 
     const match0 = await gettersFacet.getMatch(0);
     expect(match0.winner).to.be.equal(deployerAddress);
 
-    // TODO: check looser balance instead of using checkPlayerStakedAmount
+    // Check the balance after the match concludes
     expect(
       parseInt(ethers.utils.formatUnits(await GHST.balanceOf(deployerAddress)))
     ).to.be.equal(deployerGhstOriginalBalance + 500);
+
     await network.provider.send("evm_increaseTime", [86400]);
 
     gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);

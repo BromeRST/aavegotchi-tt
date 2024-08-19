@@ -18,12 +18,13 @@ contract OwnershipFacet is IERC173, Modifiers {
         owner_ = LibDiamond.contractOwner();
     }
 
-    /// @notice Sets the address of the GHST (or DAI) token.
+     /// @notice Sets the addresses of various contracts used in the system.
     /// @param _ghst The address of the GHST token.
-    function setGhstAddress(address _ghst) external onlyOwner {
+    /// @param _aavegotchiDiamond The address of the Aavegotchi Diamond contract.
+    function setAddresses(address _ghst, address _aavegotchiDiamond) external onlyOwner {
         s.ghst = _ghst;
+        s.aavegotchiDiamond = _aavegotchiDiamond;
     }
-
     function initializeFeesAndAddresses(
         uint256 _feePercentage,
         uint256 _daoPercentage,

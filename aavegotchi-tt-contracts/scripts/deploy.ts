@@ -8,6 +8,7 @@ import {
   GameFacet,
   GameFacet2,
 } from "../typechain";
+import { BUILDER_ADDRESS, DAO_ADDRESS, SOFTWARE_HOUSE_ADDRESS } from "../lib";
 
 const { getSelectors, FacetCutAction } = require("./libraries/diamond");
 
@@ -96,8 +97,9 @@ export async function deployDiamond() {
   }
 
   // Set GHST address using the ownership facet
-  await ownershipFacet.setGhstAddress(
-    "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7"
+  await ownershipFacet.setAddresses(
+    "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7",
+    "0x86935F11C86623deC8a25696E1C19a8659CbF95d"
   ); // Replace with actual GHST address
   console.log("GHST address set in OwnershipFacet.");
 
@@ -107,9 +109,9 @@ export async function deployDiamond() {
     1, // 1% to DAO
     1, // 1% to software house
     1, // 1% to developer
-    "0x3Edc831685e4D54C890Aa7afb7F607E03667a4B0", // Replace with actual DAO address
-    "0xAd0CEb6Dc055477b8a737B630D6210EFa76a2265", // Replace with actual Software House address
-    "0x36c1BfF2BEB82Ec4383EE06C1Aca2E12CFC259a0" // Replace with actual Developer address
+    DAO_ADDRESS, // Replace with actual DAO address
+    SOFTWARE_HOUSE_ADDRESS, // Replace with actual Software House address
+    BUILDER_ADDRESS // Replace with actual Developer address
   );
   console.log("Fees and addresses initialized in OwnershipFacet.");
 
