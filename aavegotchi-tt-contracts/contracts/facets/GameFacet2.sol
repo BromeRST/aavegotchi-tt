@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "hardhat/console.sol";
 import {AppStorage, Modifiers, Match, Tile} from "../libraries/AppStorage.sol";
 import {LibDiamond} from "../libraries/LibDiamond.sol";
 import "../interfaces/IAavegotchiDiamond.sol";
@@ -16,13 +17,13 @@ contract GameFacet2 is Modifiers {
     /// @notice Allows a player to play a card.
     /// @param tokenId The ID of the card being played.
     /// @param matchId The ID of the match.
-    /// @param x The x-coordinate on the game grid where the card is played.
     /// @param y The y-coordinate on the game grid where the card is played.
+    /// @param x The x-coordinate on the game grid where the card is played.
     function playCard(
         uint256 tokenId,
         uint256 matchId,
-        uint256 x,
-        uint256 y
+        uint256 y,
+        uint256 x
     ) external {
         validatePlayConditions(matchId, tokenId, x, y);
         updateGameGrid(matchId, tokenId, x, y);
@@ -48,12 +49,17 @@ contract GameFacet2 is Modifiers {
         uint256 x,
         uint256 y
     ) internal {
-        require(x < 3 && y < 3, "GameFacet: Invalid coordinates");
-        require(
-            !s.grids[matchId][y][x].isActive,
-            "GameFacet: Spot already taken"
-        );
+        // Ensure the match is still active and hasn't been contested or already has a winner.
+        require(!s.matches[matchId].contested, "GameFacet: Match has been contested");
+        require(s.matches[matchId].winner == address(0), "GameFacet: Match already has a winner");
 
+        // Check if the coordinates are valid within the 3x3 grid
+        require(x < 3 && y < 3, "GameFacet: Invalid coordinates");
+
+        // Check if the spot on the grid is already taken
+        require(!s.grids[matchId][y][x].isActive, "GameFacet: Spot already taken");
+
+        // Check if it's the correct player's turn
         bool isPlayerTurn = s.matches[matchId].player2Turn
             ? msg.sender == s.matches[matchId].player2
             : msg.sender == s.matches[matchId].player1;
@@ -74,6 +80,7 @@ contract GameFacet2 is Modifiers {
         require(isTokenValid, "GameFacet: Invalid token");
     }
 
+
     /// @dev Updates the game grid after a card is played.
     ///      This involves setting the played card on the grid, updating game state,
     ///      and potentially capturing adjacent tiles.
@@ -91,6 +98,8 @@ contract GameFacet2 is Modifiers {
         s.grids[matchId][y][x].isActive = true;
         s.grids[matchId][y][x].tokenId = tokenId;
         s.grids[matchId][y][x].winner = msg.sender;
+
+        // console.log("winner: %s", s.grids[matchId][y][x].winner);
         s.matches[matchId].movsCounter++;
 
         // Get the traits of the played Gotchi
@@ -196,12 +205,38 @@ contract GameFacet2 is Modifiers {
                 s.aavegotchiDiamond
             ).getAavegotchi(oppositeTokenId).modifiedNumericTraits;
 
-            int16 playerTrait = playerGotchiParams[playerTraitIndex];
-            int16 opponentTrait = oppositeGotchiParams[opponentTraitIndex];
+            // Determine if the bonus/malus applies to the player's and opponent's trait
+            int16 playerTraitWithBonus = playerGotchiParams[playerTraitIndex];
+            int16 opponentTraitWithBonus = oppositeGotchiParams[opponentTraitIndex];
 
-            if (playerTrait > opponentTrait) {
+            // Convert the raw traits to game values using traitToValue
+            int8 playerTraitValue = traitToValue(playerTraitWithBonus);
+            int8 opponentTraitValue = traitToValue(opponentTraitWithBonus);
+
+            // console.log("player trait value without bonus: ");
+            // console.logInt(int(playerTraitValue));
+            // console.log("opponent trait value without bonus: ");
+            // console.logInt(int(opponentTraitValue));
+
+            if (playerTraitIndex == s.grids[matchId][y][x].bonusTraitIndex) {
+                playerTraitValue += int8(s.grids[matchId][y][x].bonus);
+            }
+            if (opponentTraitIndex == s.grids[matchId][y][x].bonusTraitIndex) {
+                opponentTraitValue += int8(s.grids[matchId][y][x].bonus);
+            }
+
+            // Compare the values to determine the winner of the tile
+            if (playerTraitValue > opponentTraitValue) {
                 s.grids[matchId][y][x].winner = msg.sender;
             }
+
+            // // Debug logs to ensure the calculations are correct
+            // console.log("Tile coordinates: ", uint256(x), uint256(y));
+            // console.log("Player trait value with bonus: ");
+            // console.logInt(int(playerTraitValue));
+            // console.log("Opponent trait value with bonus: ");
+            // console.logInt(int(opponentTraitValue));
+            // console.log("Tile winner after comparison: ", s.grids[matchId][y][x].winner);
         }
     }
 
@@ -258,7 +293,7 @@ contract GameFacet2 is Modifiers {
         _array.pop();
     }
 
-    function traitToValue(uint256 num) public pure returns (uint256) {
+    function traitToValue(int16 num) public pure returns (int8) {
         if (num <= 1 || num >= 99) return 10; // A
         if ((num >= 2 && num <= 3) || (num >= 97 && num <= 98)) return 9;
         if ((num >= 4 && num <= 5) || (num >= 95 && num <= 96)) return 8;
@@ -277,22 +312,21 @@ contract GameFacet2 is Modifiers {
 
         // Ensure the match is still active and hasn't been contested.
         require(!matchData.contested, "GameFacet: Match already contested");
+        require(matchData.winner == address(0), "GameFacet: Match already has a winner");
 
-        // Ensure enough time has passed since the last move.
+        // Ensure enough time has passed since the last move or match start
         require(
             block.timestamp >= matchData.lastMove + 1 hours,
             "GameFacet: Not enough time has passed"
         );
 
         // Determine the current player
-        address currentPlayer = matchData.player2Turn
-            ? matchData.player1
-            : matchData.player2;
+        address currentPlayer = matchData.movsCounter == 0 ? matchData.player2 : (matchData.player2Turn ? matchData.player2 : matchData.player1);
 
-        // Ensure the caller is the player who made the last move.
+        // Ensure the caller is the correct player to contest.
         require(
             msg.sender == currentPlayer,
-            "GameFacet: Only the player who made the last move can contest"
+            "GameFacet: Only the correct player can contest"
         );
 
         // Declare the caller as the winner.
@@ -309,7 +343,9 @@ contract GameFacet2 is Modifiers {
         address winner,
         uint256 betSize
     ) internal {
-        uint256 prizeAmount = betSize * 2 ether;
+            uint256 totalBetAmount = betSize * 2 ether;
+            uint256 feeAmount = (totalBetAmount * s.feePercentage) / 100;
+            uint256 prizeAmount = totalBetAmount - feeAmount;
 
         if (prizeAmount > 0) {
             // Deduct the prize amount from the total staked amount

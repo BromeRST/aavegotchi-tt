@@ -1,13 +1,6 @@
 import { Signer } from "@ethersproject/abstract-signer";
 import { ethers } from "hardhat";
-import {
-  DiamondCutFacet,
-  DiamondInit__factory,
-  Diamond__factory,
-  OwnershipFacet,
-  GameFacet,
-  GameFacet2,
-} from "../typechain";
+import { DiamondInit__factory, Diamond__factory } from "../typechain";
 import { BUILDER_ADDRESS, DAO_ADDRESS, SOFTWARE_HOUSE_ADDRESS } from "../lib";
 
 const { getSelectors, FacetCutAction } = require("./libraries/diamond");

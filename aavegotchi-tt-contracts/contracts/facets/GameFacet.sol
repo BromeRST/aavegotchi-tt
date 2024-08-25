@@ -187,11 +187,11 @@ contract GameFacet is Modifiers {
                     int256(getRandomNumber(randomSeed, playerTraits) % 5) - 2
                 ); // -2 to 2
 
-                // Randomly select which trait to apply this bonus/malus to (0 to 5, representing the 6 traits)
+                // Randomly select which trait to apply this bonus/malus to (0 to 3, representing the first 4 traits)
                 uint256 randomTraitIndex = getRandomNumber(
                     randomSeed,
                     playerTraits
-                ) % 6;
+                ) % 4;
 
                 s.grids[matchId][i][j] = Tile({
                     isActive: false,

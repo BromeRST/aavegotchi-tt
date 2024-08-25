@@ -10,7 +10,12 @@ import {
   IERC20,
   IAavegotchiDiamond,
 } from "../typechain";
-import { impersonate } from "../scripts/utils";
+import {
+  checkAdjacentTiles,
+  getAdjacentCoordinates,
+  impersonate,
+  traitToValue,
+} from "../scripts/utils";
 import { DAO_ADDRESS, BUILDER_ADDRESS, SOFTWARE_HOUSE_ADDRESS } from "../lib";
 
 let gameFacet: GameFacet;
@@ -153,15 +158,27 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
 
     // Optionally fetch the traits here if needed for advanced tests
     for (let i = 0; i < player1Gotchis.length; i++) {
+      // Get the traits for player 1's Gotchi
       let aavegotchiInfo = await aavegotchiContract.getAavegotchi(
         player1Gotchis[i]
       );
-      player1GotchiParams.push(aavegotchiInfo.modifiedNumericTraits);
+      let player1ConvertedTraits = aavegotchiInfo.modifiedNumericTraits.map(
+        (trait) => parseInt(traitToValue(trait).toString())
+      );
+      player1GotchiParams.push(player1ConvertedTraits);
+
+      // Get the traits for player 2's Gotchi
       let aavegotchiInfo2 = await aavegotchiContract.getAavegotchi(
         player2Gotchis[i]
       );
-      player2GotchiParams.push(aavegotchiInfo2.modifiedNumericTraits);
+      let player2ConvertedTraits = aavegotchiInfo2.modifiedNumericTraits.map(
+        (trait) => parseInt(traitToValue(trait).toString())
+      );
+      player2GotchiParams.push(player2ConvertedTraits);
     }
+
+    console.log("player1GotchiParams", player1GotchiParams);
+    console.log("player2GotchiParams", player2GotchiParams);
   });
 
   it("Should test room creation with fee deduction", async function () {
@@ -170,8 +187,6 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
       ethers.utils.parseUnits("100000000000000000000000000", "ether")
     );
 
-    console.log("ghst approved");
-
     deployerGhstOriginalBalance = parseInt(
       ethers.utils.formatUnits(await GHST.balanceOf(deployerAddress))
     );
@@ -179,8 +194,6 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
     console.log("deployer balance", deployerGhstOriginalBalance);
 
     await gameFacet.createRoom(player1Gotchis, 500);
-
-    console.log("room created");
 
     const expectedBalance = deployerGhstOriginalBalance - 500;
 
@@ -197,8 +210,8 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
     const initialDeveloperBalance = await GHST.balanceOf(BUILDER_ADDRESS);
 
     // Join room as Alice
-    gameFacet = await impersonate(aliceAddress, gameFacet, ethers, network);
-    GHST = await impersonate(aliceAddress, GHST, ethers, network);
+    gameFacet = await impersonate(aliceAddress, gameFacet);
+    GHST = await impersonate(aliceAddress, GHST);
     await GHST.approve(
       diamondAddress,
       ethers.utils.parseUnits("100000000000000000000000000", "ether")
@@ -265,19 +278,30 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
   });
 
   it("Should test play card function with bonuses applied", async function () {
-    gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
+    // Correctly playing the first Gotchi card for the deployer
+    await gameFacet2.playCard(player1Gotchis[0], 0, 0, 0);
+    let grid = await gettersFacet.getGrid(0);
+
+    // Check adjacent tiles after playing
+    const adjacentWinners1 = checkAdjacentTiles(
+      grid,
+      0,
+      0,
+      player1Gotchis,
+      player2Gotchis,
+      player1GotchiParams,
+      player2GotchiParams,
+      true
+    );
+
+    gameFacet2 = await impersonate(aliceAddress, gameFacet2);
 
     // Attempting to play an invalid card ID from Alice's set (should fail)
     await expect(
       gameFacet2.playCard(player1Gotchis[0], 0, 2, 0)
-    ).to.be.revertedWith("GameFacet: Not your turn");
+    ).to.be.revertedWith("GameFacet: Invalid token");
 
-    gameFacet2 = await impersonate(
-      deployerAddress,
-      gameFacet2,
-      ethers,
-      network
-    );
+    gameFacet2 = await impersonate(aliceAddress, gameFacet2);
 
     // Attempting to play an invalid card ID from Deployer's set (should fail)
     await expect(gameFacet2.playCard(22133, 0, 2, 0)).to.be.revertedWith(
@@ -286,16 +310,11 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
 
     // Attempting to play with invalid coordinates (should fail)
     await expect(
-      gameFacet2.playCard(player1Gotchis[0], 0, 4, 0)
+      gameFacet2.playCard(player2Gotchis[0], 0, 4, 0)
     ).to.be.revertedWith("GameFacet: Invalid coordinates");
     await expect(
-      gameFacet2.playCard(player1Gotchis[0], 0, 0, 4)
+      gameFacet2.playCard(player2Gotchis[0], 0, 0, 4)
     ).to.be.revertedWith("GameFacet: Invalid coordinates");
-
-    // Correctly playing the first Gotchi card for the deployer
-    await gameFacet2.playCard(player1Gotchis[0], 0, 0, 0);
-
-    gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
 
     // Attempting to play the first Gotchi card for Alice
     await expect(
@@ -304,83 +323,353 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
 
     await gameFacet2.playCard(player2Gotchis[0], 0, 1, 1);
 
-    gameFacet2 = await impersonate(
-      deployerAddress,
-      gameFacet2,
-      ethers,
-      network
+    grid = await gettersFacet.getGrid(0);
+
+    // Check adjacent tiles after playing
+    const adjacentWinners2 = checkAdjacentTiles(
+      grid,
+      1,
+      1,
+      player1Gotchis,
+      player2Gotchis,
+      player1GotchiParams,
+      player2GotchiParams,
+      false
     );
+
+    // Verify adjacent tile winners
+    for (const [direction, winner] of Object.entries(adjacentWinners2)) {
+      const [adjY, adjX] = getAdjacentCoordinates(1, 1, direction);
+      if (grid[adjY] && grid[adjY][adjX]) {
+        expect(grid[adjY][adjX].winner).to.equal(
+          winner === "player2" ? aliceAddress : deployerAddress
+        );
+
+        // console.log(
+        //   "played at",
+        //   1,
+        //   1,
+        //   "winner",
+        //   winner,
+        //   "direction",
+        //   direction
+        // );
+      }
+    }
+
+    gameFacet2 = await impersonate(deployerAddress, gameFacet2);
 
     // Continue playing the next cards in the sequence
     await gameFacet2.playCard(player1Gotchis[1], 0, 0, 1);
 
-    const grid = await gettersFacet.getGrid(0);
-    expect(grid[1][1].winner).to.be.equal(deployerAddress);
+    grid = await gettersFacet.getGrid(0);
+
+    // Check adjacent tiles after playing
+    const adjacentWinners3 = checkAdjacentTiles(
+      grid,
+      0,
+      1,
+      player1Gotchis,
+      player2Gotchis,
+      player1GotchiParams,
+      player2GotchiParams,
+      true
+    );
+
+    // Verify adjacent tile winners
+    for (const [direction, winner] of Object.entries(adjacentWinners3)) {
+      const [adjY, adjX] = getAdjacentCoordinates(0, 1, direction);
+      if (grid[adjY] && grid[adjY][adjX]) {
+        expect(grid[adjY][adjX].winner).to.equal(
+          winner === "player1" ? deployerAddress : aliceAddress
+        );
+
+        // console.log(
+        //   "played at",
+        //   0,
+        //   1,
+        //   "winner",
+        //   winner,
+        //   "direction",
+        //   direction
+        // );
+      }
+    }
   });
 
   it("Should test match winner with bonuses/maluses", async function () {
-    gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
+    gameFacet2 = await impersonate(aliceAddress, gameFacet2);
 
     // Alice plays her first Gotchi card
     await gameFacet2.playCard(player2Gotchis[1], 0, 1, 0);
-
     let grid = await gettersFacet.getGrid(0);
-    expect(grid[1][1].winner).to.be.equal(aliceAddress);
-    expect(grid[0][0].winner).to.be.equal(aliceAddress);
 
-    gameFacet2 = await impersonate(
-      deployerAddress,
-      gameFacet2,
-      ethers,
-      network
+    // Check adjacent tiles after playing
+    const adjacentWinners1 = checkAdjacentTiles(
+      grid,
+      1,
+      0,
+      player1Gotchis,
+      player2Gotchis,
+      player1GotchiParams,
+      player2GotchiParams,
+      false
     );
 
-    // Deployer tries to play a card in an invalid spot (should fail)
+    // Verify adjacent tile winners
+    for (const [direction, winner] of Object.entries(adjacentWinners1)) {
+      const [adjY, adjX] = getAdjacentCoordinates(1, 0, direction);
+      if (grid[adjY] && grid[adjY][adjX]) {
+        expect(grid[adjY][adjX].winner).to.equal(
+          winner === "player2" ? aliceAddress : deployerAddress
+        );
+
+        // console.log(
+        //   "played at",
+        //   1,
+        //   0,
+        //   "winner",
+        //   winner,
+        //   "direction",
+        //   direction
+        // );
+      }
+    }
+
+    gameFacet2 = await impersonate(deployerAddress, gameFacet2);
+
+    // Deployer tries to play a card already played (should fail)
     await expect(gameFacet2.playCard(player1Gotchis[1], 0, 2, 0)).to.be
       .reverted;
 
     // Deployer plays their next Gotchi card in a valid spot
     await gameFacet2.playCard(player1Gotchis[2], 0, 2, 0);
-
     grid = await gettersFacet.getGrid(0);
-    expect(grid[1][0].winner).to.be.equal(deployerAddress);
 
-    gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
+    // Check adjacent tiles after playing
+    const adjacentWinners2 = checkAdjacentTiles(
+      grid,
+      2,
+      0,
+      player1Gotchis,
+      player2Gotchis,
+      player1GotchiParams,
+      player2GotchiParams,
+      true
+    );
+
+    // Verify adjacent tile winners
+    for (const [direction, winner] of Object.entries(adjacentWinners2)) {
+      const [adjY, adjX] = getAdjacentCoordinates(2, 0, direction);
+      if (grid[adjY] && grid[adjY][adjX]) {
+        expect(grid[adjY][adjX].winner).to.equal(
+          winner === "player1" ? deployerAddress : aliceAddress
+        );
+
+        // console.log(
+        //   "played at",
+        //   2,
+        //   0,
+        //   "winner",
+        //   winner,
+        //   "direction",
+        //   direction
+        // );
+      }
+    }
+
+    gameFacet2 = await impersonate(aliceAddress, gameFacet2);
     await gameFacet2.playCard(player2Gotchis[2], 0, 2, 1);
 
-    gameFacet2 = await impersonate(
-      deployerAddress,
-      gameFacet2,
-      ethers,
-      network
+    grid = await gettersFacet.getGrid(0);
+
+    // Check adjacent tiles after playing
+    const adjacentWinners3 = checkAdjacentTiles(
+      grid,
+      2,
+      1,
+      player1Gotchis,
+      player2Gotchis,
+      player1GotchiParams,
+      player2GotchiParams,
+      false
     );
+
+    for (const [direction, winner] of Object.entries(adjacentWinners3)) {
+      const [adjY, adjX] = getAdjacentCoordinates(2, 1, direction);
+      if (grid[adjY] && grid[adjY][adjX]) {
+        expect(grid[adjY][adjX].winner).to.equal(
+          winner === "player2" ? aliceAddress : deployerAddress
+        );
+
+        // console.log(
+        //   "played at",
+        //   2,
+        //   1,
+        //   "winner",
+        //   winner,
+        //   "direction",
+        //   direction
+        // );
+      }
+    }
+
+    gameFacet2 = await impersonate(deployerAddress, gameFacet2);
     await gameFacet2.playCard(player1Gotchis[3], 0, 2, 2);
 
-    gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
+    grid = await gettersFacet.getGrid(0);
+
+    // Check adjacent tiles after playing
+    const adjacentWinners4 = checkAdjacentTiles(
+      grid,
+      2,
+      2,
+      player1Gotchis,
+      player2Gotchis,
+      player1GotchiParams,
+      player2GotchiParams,
+      true
+    );
+
+    for (const [direction, winner] of Object.entries(adjacentWinners4)) {
+      const [adjY, adjX] = getAdjacentCoordinates(2, 2, direction);
+      if (grid[adjY] && grid[adjY][adjX]) {
+        expect(grid[adjY][adjX].winner).to.equal(
+          winner === "player1" ? deployerAddress : aliceAddress
+        );
+
+        // console.log(
+        //   "played at",
+        //   2,
+        //   2,
+        //   "winner",
+        //   winner,
+        //   "direction",
+        //   direction
+        // );
+      }
+    }
+
+    gameFacet2 = await impersonate(aliceAddress, gameFacet2);
     await gameFacet2.playCard(player2Gotchis[3], 0, 1, 2);
 
-    // Deployer plays their final Gotchi card to win the match
-    gameFacet2 = await impersonate(
-      deployerAddress,
-      gameFacet2,
-      ethers,
-      network
+    grid = await gettersFacet.getGrid(0);
+
+    // Check adjacent tiles after playing
+    const adjacentWinners5 = checkAdjacentTiles(
+      grid,
+      1,
+      2,
+      player1Gotchis,
+      player2Gotchis,
+      player1GotchiParams,
+      player2GotchiParams,
+      false
     );
+
+    for (const [direction, winner] of Object.entries(adjacentWinners5)) {
+      const [adjY, adjX] = getAdjacentCoordinates(1, 2, direction);
+      if (grid[adjY] && grid[adjY][adjX]) {
+        expect(grid[adjY][adjX].winner).to.equal(
+          winner === "player2" ? aliceAddress : deployerAddress
+        );
+
+        // console.log(
+        //   "played at",
+        //   1,
+        //   2,
+        //   "winner",
+        //   winner,
+        //   "direction",
+        //   direction
+        // );
+      }
+    }
+
+    // Deployer plays their final Gotchi card to win the match
+    gameFacet2 = await impersonate(deployerAddress, gameFacet2);
     await gameFacet2.playCard(player1Gotchis[4], 0, 0, 2);
 
+    grid = await gettersFacet.getGrid(0);
+
+    // Check adjacent tiles after playing
+    const adjacentWinners6 = checkAdjacentTiles(
+      grid,
+      0,
+      2,
+      player1Gotchis,
+      player2Gotchis,
+      player1GotchiParams,
+      player2GotchiParams,
+      true
+    );
+
+    for (const [direction, winner] of Object.entries(adjacentWinners6)) {
+      const [adjY, adjX] = getAdjacentCoordinates(0, 2, direction);
+      if (grid[adjY] && grid[adjY][adjX]) {
+        expect(grid[adjY][adjX].winner).to.equal(
+          winner === "player1" ? deployerAddress : aliceAddress
+        );
+
+        // console.log(
+        //   "played at",
+        //   0,
+        //   2,
+        //   "winner",
+        //   winner,
+        //   "direction",
+        //   direction
+        // );
+      }
+    }
+
     const match0 = await gettersFacet.getMatch(0);
-    expect(match0.winner).to.be.equal(deployerAddress);
+
+    // Count the tiles controlled by each player
+    let deployerTiles = 0;
+    let aliceTiles = 0;
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        if (grid[i][j].winner === deployerAddress) {
+          deployerTiles++;
+        } else if (grid[i][j].winner === aliceAddress) {
+          aliceTiles++;
+        }
+      }
+    }
+
+    // Determine the expected winner
+    const expectedWinner =
+      deployerTiles > aliceTiles ? deployerAddress : aliceAddress;
+
+    expect(match0.winner).to.be.equal(expectedWinner);
+
+    const payedFee = (500 * 3) / 100; // 3% fee
+    const payedFromBoth = payedFee * 2;
+    const payedToWinner = 500 - payedFromBoth;
+
+    console.log(
+      "deployerOriginalBalance after match",
+      deployerGhstOriginalBalance
+    );
 
     // Check the balance after the match concludes
     expect(
       parseInt(ethers.utils.formatUnits(await GHST.balanceOf(deployerAddress)))
-    ).to.be.equal(deployerGhstOriginalBalance + 500);
+    ).to.be.equal(deployerGhstOriginalBalance + payedToWinner);
 
     await network.provider.send("evm_increaseTime", [86400]);
 
-    gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
+    gameFacet2 = await impersonate(aliceAddress, gameFacet2);
+
     await expect(gameFacet2.contestMatch(0)).to.be.revertedWith(
-      "GameFacet2: already contested"
+      "GameFacet: Match already has a winner"
+    );
+
+    gameFacet2 = await impersonate(deployerAddress, gameFacet2);
+
+    await expect(gameFacet2.contestMatch(0)).to.be.revertedWith(
+      "GameFacet: Match already has a winner"
     );
   });
 
@@ -392,31 +681,80 @@ describe("Aavegotchi-tt with Fees and Bonuses/Maluses", function () {
       ethers.utils.formatUnits(await GHST.balanceOf(aliceAddress))
     );
 
-    gameFacet = await impersonate(deployerAddress, gameFacet, ethers, network);
+    gameFacet = await impersonate(deployerAddress, gameFacet);
     await gameFacet.createRoom(player1Gotchis, 200);
     expect(
       parseInt(ethers.utils.formatUnits(await GHST.balanceOf(deployerAddress)))
     ).to.be.equal(deployerGhstOriginalBalance - 200);
 
-    gameFacet = await impersonate(aliceAddress, gameFacet, ethers, network);
-    await gameFacet.joinRoom(0, player2Gotchis);
+    gameFacet = await impersonate(aliceAddress, gameFacet);
+    await gameFacet.joinRoom(1, player2Gotchis);
 
-    gameFacet2 = await impersonate(aliceAddress, gameFacet2, ethers, network);
+    gameFacet2 = await impersonate(aliceAddress, gameFacet2);
 
     await expect(gameFacet2.contestMatch(1)).to.be.revertedWith(
-      "GameFacet2: not enough time"
+      "GameFacet: Not enough time has passed"
     );
+
     await network.provider.send("evm_increaseTime", [86400]);
     await gameFacet2.contestMatch(1);
 
     const match1 = await gettersFacet.getMatch(1);
     expect(match1.winner).to.be.equal(aliceAddress);
     expect(match1.contested).to.be.true;
+
+    const payedFee = (200 * 3) / 100; // 3% fee
+    const payedFromBoth = payedFee * 2;
+    const payedToWinner = 200 - payedFromBoth;
+
     expect(
       parseInt(ethers.utils.formatUnits(await GHST.balanceOf(deployerAddress)))
     ).to.be.equal(deployerGhstOriginalBalance - 200);
     expect(
       parseInt(ethers.utils.formatUnits(await GHST.balanceOf(aliceAddress)))
-    ).to.be.equal(aliceGhstOriginalBalance + 200);
+    ).to.be.equal(aliceGhstOriginalBalance + payedToWinner);
+  });
+
+  it("Should allow second player to contest if first player never plays", async function () {
+    deployerGhstOriginalBalance = parseInt(
+      ethers.utils.formatUnits(await GHST.balanceOf(deployerAddress))
+    );
+    aliceGhstOriginalBalance = parseInt(
+      ethers.utils.formatUnits(await GHST.balanceOf(aliceAddress))
+    );
+
+    gameFacet = await impersonate(deployerAddress, gameFacet);
+    await gameFacet.createRoom(player1Gotchis, 200);
+
+    gameFacet = await impersonate(aliceAddress, gameFacet);
+    await gameFacet.joinRoom(2, player2Gotchis);
+
+    gameFacet2 = await impersonate(aliceAddress, gameFacet2);
+
+    // Try to contest immediately (should fail)
+    await expect(gameFacet2.contestMatch(2)).to.be.revertedWith(
+      "GameFacet: Not enough time has passed"
+    );
+
+    // Wait for the required time
+    await network.provider.send("evm_increaseTime", [3600]); // 1 hour
+
+    // Now Alice (player2) should be able to contest
+    await gameFacet2.contestMatch(2);
+
+    const match2 = await gettersFacet.getMatch(2);
+    expect(match2.winner).to.be.equal(aliceAddress);
+    expect(match2.contested).to.be.true;
+
+    const payedFee = (200 * 3) / 100; // 3% fee
+    const payedFromBoth = payedFee * 2;
+    const payedToWinner = 200 - payedFromBoth;
+
+    expect(
+      parseInt(ethers.utils.formatUnits(await GHST.balanceOf(deployerAddress)))
+    ).to.be.equal(deployerGhstOriginalBalance - 200);
+    expect(
+      parseInt(ethers.utils.formatUnits(await GHST.balanceOf(aliceAddress)))
+    ).to.be.equal(aliceGhstOriginalBalance + payedToWinner);
   });
 });
