@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity ^0.8.20;
 
 import {LibDiamond} from "./LibDiamond.sol";
 
@@ -7,6 +7,8 @@ struct Tile {
     bool isActive;
     uint256 tokenId;
     address winner;
+    int8 bonus; // The bonus or malus applied to the tile (can be positive or negative)
+    uint8 bonusTraitIndex; // Index of the trait to which the bonus/malus applies
 }
 
 struct Match {
@@ -22,29 +24,31 @@ struct Match {
     address winner;
 }
 
-struct Register {
-    address player;
+struct Room {
+    address creator;
+    uint256 betSize;
     uint256[] tokenIds;
+    bool isActive;
 }
 
 struct AppStorage {
     address aavegotchiDiamond;
-    address BetToken;
-    address weth; //added
-    address swapRouterAddress; //added
+    address ghst;
     mapping(uint256 => Match) matches;
     mapping(uint256 => Tile[3][3]) grids;
     mapping(address => uint256[]) addressToMatchIds;
+    mapping(uint256 => Room) rooms; // Added for rooms
     uint256 nextId;
+    uint256 nextRoomId; // Added for room IDs
     uint256 playersAmountStaked;
-    Register[] registered1;
-    Register[] registered5;
-    Register[] registered10;
-    Register[] registered25;
-    Register[] registered50;
-    Register[] registered100;
-    Register[] registered200;
-    Register[] registered500;
+    // Added for fees
+    uint256 feePercentage;
+    uint256 daoPercentage;
+    uint256 softwareHousePercentage;
+    uint256 developerPercentage;
+    address daoAddress;
+    address softwareHouseAddress;
+    address developerAddress;
 }
 
 library LibAppStorage {
